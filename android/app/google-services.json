@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "358643495873",
+    "project_id": "untense-pro",
+    "storage_bucket": "untense-pro.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:358643495873:android:2d7f10c345db22ee197540",
+        "android_client_info": {
+          "package_name": "com.example.untense_pro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-1Ql1ndAttVgjXbFeoRAdZ7Fsh86UHNo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
