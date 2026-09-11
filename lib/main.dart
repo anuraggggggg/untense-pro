@@ -34,7 +34,7 @@ class UnTenseProApp extends StatelessWidget {
         builder: (context, authProvider, _) {
           final router = AppRouter.createRouter(authProvider);
           return MaterialApp.router(
-            title: 'UnTense Pro',
+            title: 'UnTense Professional',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             routerConfig: router,
