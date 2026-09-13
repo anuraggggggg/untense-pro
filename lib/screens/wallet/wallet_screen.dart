@@ -86,7 +86,6 @@ class _WalletScreenState extends State<WalletScreen> {
                     }
                     return null;
                   },
-
                 ),
                 const SizedBox(height: 14),
                 TextFormField(

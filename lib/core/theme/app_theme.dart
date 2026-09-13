@@ -17,9 +17,12 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: AppColors.backgroundLight,
       textTheme: GoogleFonts.interTextTheme().copyWith(
-        displayLarge: GoogleFonts.inter(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-        headlineMedium: GoogleFonts.inter(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-        titleLarge: GoogleFonts.inter(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+        displayLarge: GoogleFonts.inter(
+            color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+        headlineMedium: GoogleFonts.inter(
+            color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+        titleLarge: GoogleFonts.inter(
+            color: AppColors.textPrimary, fontWeight: FontWeight.w600),
         bodyLarge: GoogleFonts.inter(color: AppColors.textPrimary),
         bodyMedium: GoogleFonts.inter(color: AppColors.textSecondary),
       ),
@@ -94,7 +97,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.rejectedRed),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         labelStyle: const TextStyle(color: AppColors.textSecondary),
         prefixIconColor: AppColors.textSecondary,
         suffixIconColor: AppColors.textSecondary,
@@ -112,8 +116,10 @@ class AppTheme {
         unselectedLabelColor: AppColors.textSecondary,
         indicatorColor: AppColors.primaryCyan,
         indicatorSize: TabBarIndicatorSize.tab,
-        labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
-        unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.normal, fontSize: 14),
+        labelStyle:
+            GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+        unselectedLabelStyle:
+            GoogleFonts.inter(fontWeight: FontWeight.normal, fontSize: 14),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.backgroundLight,
@@ -170,10 +176,14 @@ class AppTheme {
         brightness: Brightness.dark,
       ),
       scaffoldBackgroundColor: AppColors.surfaceDark,
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
-        displayLarge: GoogleFonts.inter(color: AppColors.textPrimaryDark, fontWeight: FontWeight.bold),
-        headlineMedium: GoogleFonts.inter(color: AppColors.textPrimaryDark, fontWeight: FontWeight.bold),
-        titleLarge: GoogleFonts.inter(color: AppColors.textPrimaryDark, fontWeight: FontWeight.w600),
+      textTheme:
+          GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+        displayLarge: GoogleFonts.inter(
+            color: AppColors.textPrimaryDark, fontWeight: FontWeight.bold),
+        headlineMedium: GoogleFonts.inter(
+            color: AppColors.textPrimaryDark, fontWeight: FontWeight.bold),
+        titleLarge: GoogleFonts.inter(
+            color: AppColors.textPrimaryDark, fontWeight: FontWeight.w600),
         bodyLarge: GoogleFonts.inter(color: AppColors.textPrimaryDark),
         bodyMedium: GoogleFonts.inter(color: AppColors.textSecondaryDark),
       ),

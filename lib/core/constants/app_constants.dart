@@ -1,6 +1,11 @@
 class AppConstants {
   static const String appName = 'UnTense Professional';
 
+  // Backend REST API Configuration
+  static const String apiBaseUrl = 'http://65.0.73.114:4001/api/v1';
+  static const String otpSendEndpoint = '/auth/otp/send';
+  static const String otpVerifyEndpoint = '/auth/otp/verify';
+
   // Agora App ID - Replace with your actual Agora App ID from Agora Console
   static const String agoraAppId = 'YOUR_AGORA_APP_ID';
 

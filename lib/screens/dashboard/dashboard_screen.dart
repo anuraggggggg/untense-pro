@@ -168,7 +168,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Switch(
                   value: isOnline,
                   activeThumbColor: AppColors.primaryCyan,
-
                   activeTrackColor:
                       AppColors.primaryCyan.withValues(alpha: 0.3),
                   onChanged: (val) {

@@ -165,7 +165,6 @@ class _RegistrationVerificationScreenState
                 ],
               ),
             )
-
           : Stepper(
               type: StepperType.horizontal,
               currentStep: _currentStep,

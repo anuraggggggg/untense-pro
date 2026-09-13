@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../models/counsellor_model.dart';
 import '../screens/auth/login_screen.dart';
+import '../screens/auth/counsellor_register_screen.dart';
 import '../screens/auth/registration_verification_screen.dart';
 import '../screens/auth/pending_verification_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
@@ -24,8 +25,9 @@ class AppRouter {
 
         if (isLoading) return null;
 
-        // If not logged in, force to login screen
+        // Allow unauthenticated access to login and register screens
         if (!isAuth) {
+          if (loc == '/register') return null;
           return loc == '/login' ? null : '/login';
         }
 
@@ -47,6 +49,7 @@ class AppRouter {
         // If approved, block auth / pending screens and redirect to dashboard
         if (counsellor.verificationStatus == VerificationStatus.approved) {
           if (loc == '/login' ||
+              loc == '/register' ||
               loc == '/registration-verification' ||
               loc == '/pending-verification') {
             return '/dashboard';
@@ -59,6 +62,10 @@ class AppRouter {
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/register',
+          builder: (context, state) => const CounsellorRegisterScreen(),
         ),
         GoRoute(
           path: '/registration-verification',
