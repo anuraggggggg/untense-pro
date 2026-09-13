@@ -11,14 +11,17 @@ class AuthProvider extends ChangeNotifier {
   final AuthApiService _apiService = AuthApiService();
 
   User? _firebaseUser;
+  Map<String, dynamic>? _apiUserData;
   CounsellorModel? _counsellor;
   bool _isLoading = true;
   StreamSubscription? _counsellorSubscription;
 
   User? get firebaseUser => _firebaseUser;
   CounsellorModel? get counsellor => _counsellor;
+  Map<String, dynamic>? get apiUserData => _apiUserData;
   bool get isLoading => _isLoading;
-  bool get isAuthenticated => _firebaseUser != null;
+  bool get isAuthenticated =>
+      _firebaseUser != null || _apiUserData != null || _counsellor != null;
 
   AuthProvider() {
     _init();
@@ -32,7 +35,9 @@ class AuthProvider extends ChangeNotifier {
       if (user != null) {
         _listenToCounsellorDoc(user.uid);
       } else {
-        _counsellor = null;
+        if (_apiUserData == null) {
+          _counsellor = null;
+        }
         _counsellorSubscription?.cancel();
         _isLoading = false;
         notifyListeners();
@@ -141,37 +146,58 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> signInWithEmailAndPassword(String email, String password) async {
+  /// Sign in with email and password via Backend REST API & Firebase sync
+  Future<void> signInWithEmailAndPassword(
+      String email, String password) async {
     debugPrint(
         '🐛 [AuthProvider] Initiating signInWithEmailAndPassword for $email');
     _isLoading = true;
     notifyListeners();
+
+    String? apiError;
     try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      // 1. Try Backend REST API login first
+      final res =
+          await _apiService.loginCounsellor(email: email, password: password);
+      _apiUserData = res['data'] is Map<String, dynamic>
+          ? res['data']
+          : <String, dynamic>{'email': email};
+      debugPrint('🐛 [AuthProvider] REST API login successful for $email');
+
+      final userData = _apiUserData!;
+      _counsellor = CounsellorModel(
+        uid: userData['id']?.toString() ??
+            'api_user_${DateTime.now().millisecondsSinceEpoch}',
+        fullName: userData['fullName'] ?? 'Counsellor',
+        email: email,
+        phone: userData['phone'] ?? '',
+        yearsExperience: userData['experienceYears'] ?? 1,
+        bio: userData['qualification'] ?? 'Therapist',
+        specializations: [],
+        upiId: '',
+        documents: {},
+        verificationStatus: VerificationStatus.approved,
+      );
+    } catch (e) {
+      apiError = e.toString().replaceAll('Exception: ', '').trim();
+      debugPrint(
+          '🐛 [AuthProvider REST API Warning] REST API login failed: $apiError');
+    }
+
+    // 2. Attempt Firebase login sync if available
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+          email: email, password: password);
+      _firebaseUser = credential.user;
       debugPrint('🐛 [AuthProvider] Firebase signin successful for $email');
     } catch (e) {
       debugPrint(
-          '🐛 [AuthProvider Error] signInWithEmailAndPassword failed: $e');
-      rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> signUpWithEmailAndPassword(String email, String password) async {
-    debugPrint(
-        '🐛 [AuthProvider] Initiating signUpWithEmailAndPassword for $email');
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await _auth.createUserWithEmailAndPassword(
-          email: email, password: password);
-      debugPrint('🐛 [AuthProvider] Firebase signup successful for $email');
-    } catch (e) {
-      debugPrint(
-          '🐛 [AuthProvider Error] signUpWithEmailAndPassword failed: $e');
-      rethrow;
+          '🐛 [AuthProvider Firebase Warning] Firebase signin failed: $e');
+      // If REST API also failed, throw the REST API error message cleanly
+      if (_apiUserData == null) {
+        throw Exception(apiError ??
+            e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim());
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -180,7 +206,10 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signOut() async {
     debugPrint('🐛 [AuthProvider] Signing out user');
+    _apiUserData = null;
+    _counsellor = null;
     await _auth.signOut();
+    notifyListeners();
   }
 
   @override

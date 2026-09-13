@@ -35,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!mounted) return;
     setState(() {
       _errorMessage = null;
       _successMessage = null;
@@ -46,6 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final success = await authProvider.sendOtp(email, otpFor: 'LOGIN');
 
+      if (!mounted) return;
       if (success) {
         setState(() {
           _otpSent = true;
@@ -53,6 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '').trim();
       });
@@ -61,9 +64,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _verifyOtp() async {
     if (_otpController.text.trim().isEmpty) {
+      if (!mounted) return;
       setState(() => _errorMessage = 'Please enter the 6-digit OTP code');
       return;
     }
+    if (!mounted) return;
     setState(() {
       _errorMessage = null;
       _successMessage = null;
@@ -75,20 +80,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final success = await authProvider.verifyOtp(email, otp);
+      if (!mounted) return;
       if (success) {
         setState(() {
           _successMessage = 'OTP verified successfully!';
         });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('OTP Verified! Welcome to UnTense Professional.'),
-              backgroundColor: AppColors.onlineGreen,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('OTP Verified! Welcome to UnTense Professional.'),
+            backgroundColor: AppColors.onlineGreen,
+          ),
+        );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '').trim();
       });
@@ -97,6 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submitPassword() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!mounted) return;
     setState(() {
       _errorMessage = null;
       _successMessage = null;
@@ -109,6 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim();
       });

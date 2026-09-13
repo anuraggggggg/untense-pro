@@ -14,11 +14,20 @@ class AuthApiService {
     required String email,
     String otpFor = 'COUNSELLOR_REGISTRATION',
   }) async {
+    String sanitizedOtpFor = otpFor.toUpperCase().trim();
+    if (sanitizedOtpFor == 'REGISTERATION' || sanitizedOtpFor == 'REGISTRATION') {
+      sanitizedOtpFor = 'COUNSELLOR_REGISTRATION';
+    } else if (sanitizedOtpFor != 'LOGIN' &&
+        sanitizedOtpFor != 'CUSTOMER_REGISTRATION' &&
+        sanitizedOtpFor != 'COUNSELLOR_REGISTRATION') {
+      sanitizedOtpFor = 'COUNSELLOR_REGISTRATION';
+    }
+
     final url =
         Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.otpSendEndpoint}');
     final payload = {
       'email': email,
-      'otpFor': otpFor,
+      'otpFor': sanitizedOtpFor,
     };
 
     debugPrint('🐛 [API Request] POST $url');
