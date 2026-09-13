@@ -25,7 +25,8 @@ class _WalletScreenState extends State<WalletScreen> {
     });
   }
 
-  void _showWithdrawModal(BuildContext context, double currentBalance, String defaultUpi) {
+  void _showWithdrawModal(
+      BuildContext context, double currentBalance, String defaultUpi) {
     final amountController = TextEditingController();
     final upiController = TextEditingController(text: defaultUpi);
     final formKey = GlobalKey<FormState>();
@@ -54,44 +55,51 @@ class _WalletScreenState extends State<WalletScreen> {
                   'Withdraw to UPI',
                   style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryTeal,
+                        color: AppColors.primaryNavy,
                       ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   'Available Balance: ₹${currentBalance.toStringAsFixed(2)}',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 14),
                 ),
                 const SizedBox(height: 20),
-
                 TextFormField(
                   controller: amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'Withdrawal Amount (₹)',
                     prefixIcon: Icon(Icons.currency_rupee),
                   ),
                   validator: (val) {
-                    if (val == null || val.isEmpty) return 'Enter amount';
+                    if (val == null || val.isEmpty) {
+                      return 'Enter amount';
+                    }
                     final amt = double.tryParse(val);
-                    if (amt == null || amt <= 0) return 'Enter valid amount';
-                    if (amt > currentBalance) return 'Exceeds available balance';
+                    if (amt == null || amt <= 0) {
+                      return 'Enter valid amount';
+                    }
+                    if (amt > currentBalance) {
+                      return 'Exceeds available balance';
+                    }
                     return null;
                   },
+
                 ),
                 const SizedBox(height: 14),
-
                 TextFormField(
                   controller: upiController,
                   decoration: const InputDecoration(
                     labelText: 'UPI ID',
                     prefixIcon: Icon(Icons.account_balance_wallet_outlined),
                   ),
-                  validator: (val) =>
-                      val == null || !val.contains('@') ? 'Enter valid UPI ID' : null,
+                  validator: (val) => val == null || !val.contains('@')
+                      ? 'Enter valid UPI ID'
+                      : null,
                 ),
                 const SizedBox(height: 24),
-
                 Consumer<WalletProvider>(
                   builder: (context, walletProvider, _) {
                     return ElevatedButton(
@@ -99,13 +107,16 @@ class _WalletScreenState extends State<WalletScreen> {
                           ? null
                           : () async {
                               if (!formKey.currentState!.validate()) return;
-                              final user = context.read<AuthProvider>().firebaseUser;
+                              final user =
+                                  context.read<AuthProvider>().firebaseUser;
                               if (user == null) return;
 
-                              final amt = double.parse(amountController.text.trim());
+                              final amt =
+                                  double.parse(amountController.text.trim());
                               final upi = upiController.text.trim();
 
-                              final success = await walletProvider.withdrawToUpi(
+                              final success =
+                                  await walletProvider.withdrawToUpi(
                                 counsellorId: user.uid,
                                 amount: amt,
                                 upiId: upi,
@@ -116,7 +127,8 @@ class _WalletScreenState extends State<WalletScreen> {
                                 if (success) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Payout request submitted successfully!'),
+                                      content: Text(
+                                          'Payout request submitted successfully!'),
                                       backgroundColor: AppColors.onlineGreen,
                                     ),
                                   );
@@ -124,7 +136,8 @@ class _WalletScreenState extends State<WalletScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        walletProvider.errorMessage ?? 'Withdrawal failed',
+                                        walletProvider.errorMessage ??
+                                            'Withdrawal failed',
                                       ),
                                       backgroundColor: Colors.red,
                                     ),
@@ -214,13 +227,14 @@ class _WalletScreenState extends State<WalletScreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: totalBalance > 0
-                          ? () => _showWithdrawModal(context, totalBalance, defaultUpi)
+                          ? () => _showWithdrawModal(
+                              context, totalBalance, defaultUpi)
                           : null,
                       icon: const Icon(Icons.send_rounded),
                       label: const Text('Withdraw to UPI'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primaryTeal,
+                        foregroundColor: AppColors.primaryNavy,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -269,7 +283,8 @@ class _WalletScreenState extends State<WalletScreen> {
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(32.0),
-                  child: CircularProgressIndicator(color: AppColors.primaryTeal),
+                  child:
+                      CircularProgressIndicator(color: AppColors.primaryTeal),
                 ),
               )
             else if (transactions.isEmpty)
@@ -352,7 +367,8 @@ class _WalletScreenState extends State<WalletScreen> {
     final isPayout = tx.type == TransactionType.payout;
     final color = isPayout ? Colors.orange[800] : AppColors.onlineGreen;
     final icon = isPayout ? Icons.south_west : Icons.north_east;
-    final formattedDate = DateFormat('MMM dd, yyyy • hh:mm a').format(tx.timestamp);
+    final formattedDate =
+        DateFormat('MMM dd, yyyy • hh:mm a').format(tx.timestamp);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),

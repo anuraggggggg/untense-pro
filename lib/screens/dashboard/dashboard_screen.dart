@@ -46,44 +46,79 @@ class _DashboardScreenState extends State<DashboardScreen>
     final requests = requestProvider.requests;
 
     final pendingChat = requests
-        .where((r) => r.requestType == RequestType.chat && r.status == RequestStatus.pending)
+        .where((r) =>
+            r.requestType == RequestType.chat &&
+            r.status == RequestStatus.pending)
         .toList();
     final pendingAudio = requests
-        .where((r) => r.requestType == RequestType.audio && r.status == RequestStatus.pending)
+        .where((r) =>
+            r.requestType == RequestType.audio &&
+            r.status == RequestStatus.pending)
         .toList();
     final pendingVideo = requests
-        .where((r) => r.requestType == RequestType.video && r.status == RequestStatus.pending)
+        .where((r) =>
+            r.requestType == RequestType.video &&
+            r.status == RequestStatus.pending)
         .toList();
-    final allPending = requests.where((r) => r.status == RequestStatus.pending).toList();
+    final allPending =
+        requests.where((r) => r.status == RequestStatus.pending).toList();
 
     final isOnline = counsellor?.isOnline ?? false;
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        titleSpacing: 16,
+        title: Row(
           children: [
-            Text(
-              'Dr. ${counsellor?.fullName ?? "Counsellor"}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              isOnline ? 'Online • Ready for Sessions' : 'Offline • Unavailable',
-              style: TextStyle(
-                fontSize: 12,
-                color: isOnline ? AppColors.onlineGreen : AppColors.offlineGrey,
+            Container(
+              width: 38,
+              height: 38,
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(
+                color: AppColors.primaryNavy,
+                shape: BoxShape.circle,
               ),
+              child: Image.asset(
+                'assets/transparent_ic.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dr. ${counsellor?.fullName ?? "Counsellor"}',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryNavy),
+                ),
+                Text(
+                  isOnline
+                      ? 'Online • Ready for Sessions'
+                      : 'Offline • Unavailable',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isOnline
+                        ? AppColors.onlineGreen
+                        : AppColors.offlineGrey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.account_balance_wallet_outlined),
+            icon: const Icon(Icons.account_balance_wallet_outlined,
+                color: AppColors.primaryNavy),
             tooltip: 'Wallet & Earnings',
             onPressed: () => context.push('/wallet'),
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: AppColors.primaryNavy),
             onPressed: () => context.read<AuthProvider>().signOut(),
           ),
         ],
@@ -92,12 +127,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         children: [
           // Availability Toggle Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: BoxDecoration(
-              color: isOnline ? AppColors.mintBg : Colors.grey[50],
+              color: isOnline ? AppColors.mintBg : AppColors.backgroundLight,
               border: Border(
                 bottom: BorderSide(
-                  color: isOnline ? AppColors.primaryTealLight : AppColors.borderGrey,
+                  color: isOnline ? AppColors.accentMint : AppColors.borderGrey,
                   width: 1,
                 ),
               ),
@@ -108,30 +143,38 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Row(
                   children: [
                     Container(
-                      width: 12,
-                      height: 12,
+                      width: 10,
+                      height: 10,
                       decoration: BoxDecoration(
-                        color: isOnline ? AppColors.onlineGreen : AppColors.offlineGrey,
+                        color: isOnline
+                            ? AppColors.onlineGreen
+                            : AppColors.offlineGrey,
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Text(
                       'Session Availability',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: isOnline ? AppColors.primaryTeal : AppColors.textPrimary,
+                        color: isOnline
+                            ? AppColors.primaryNavy
+                            : AppColors.textPrimary,
                       ),
                     ),
                   ],
                 ),
                 Switch(
                   value: isOnline,
-                  activeThumbColor: AppColors.primaryTeal,
+                  activeThumbColor: AppColors.primaryCyan,
+
+                  activeTrackColor:
+                      AppColors.primaryCyan.withValues(alpha: 0.3),
                   onChanged: (val) {
                     if (counsellor != null) {
-                      counsellorProvider.toggleOnlineStatus(counsellor.uid, val);
+                      counsellorProvider.toggleOnlineStatus(
+                          counsellor.uid, val);
                     }
                   },
                 ),
@@ -142,9 +185,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           // Real-time Request Queues Tabs
           TabBar(
             controller: _tabController,
-            labelColor: AppColors.primaryTeal,
+            labelColor: AppColors.primaryNavy,
             unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.primaryTeal,
+            indicatorColor: AppColors.primaryCyan,
             tabs: [
               Tab(text: 'All (${allPending.length})'),
               Tab(text: 'Chat (${pendingChat.length})'),
@@ -253,7 +296,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: badgeColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -276,10 +320,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () =>
-                        context.read<RequestProvider>().declineRequest(request.id),
+                    onPressed: () => context
+                        .read<RequestProvider>()
+                        .declineRequest(request.id),
                     icon: const Icon(Icons.close, color: Colors.red),
-                    label: const Text('Decline', style: TextStyle(color: Colors.red)),
+                    label: const Text('Decline',
+                        style: TextStyle(color: Colors.red)),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.red),
                       shape: RoundedRectangleBorder(
@@ -311,14 +357,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                         });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Accepted Chat request with ${request.clientName}')),
+                          SnackBar(
+                              content: Text(
+                                  'Accepted Chat request with ${request.clientName}')),
                         );
                       }
                     },
                     icon: const Icon(Icons.check),
                     label: const Text('Accept'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryTeal,
+                      backgroundColor: AppColors.primaryNavy,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),

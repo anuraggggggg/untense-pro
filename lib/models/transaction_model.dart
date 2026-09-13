@@ -1,4 +1,5 @@
 enum TransactionType { earning, payout }
+
 enum TransactionStatus { pending, completed, failed }
 
 class TransactionModel {
@@ -24,7 +25,9 @@ class TransactionModel {
     return TransactionModel(
       id: id,
       amount: (map['amount'] ?? 0.0).toDouble(),
-      type: map['type'] == 'payout' ? TransactionType.payout : TransactionType.earning,
+      type: map['type'] == 'payout'
+          ? TransactionType.payout
+          : TransactionType.earning,
       status: _parseStatus(map['status']),
       upiId: map['upiId'],
       description: map['description'] ?? '',

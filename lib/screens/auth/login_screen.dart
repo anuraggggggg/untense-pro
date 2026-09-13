@@ -64,29 +64,40 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo / Icon Header
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppColors.mintBg,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.primaryTealLight, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.psychology,
-                      size: 44,
-                      color: AppColors.primaryTeal,
+                  Center(
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryNavy,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                AppColors.primaryCyan.withValues(alpha: 0.25),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/transparent_ic.png',
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                   Text(
                     'UnTense Professional',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primaryTeal,
+                          color: AppColors.primaryNavy,
+                          letterSpacing: -0.5,
                         ),
                   ),
+
                   const SizedBox(height: 8),
                   Text(
                     _isSignUp
@@ -120,8 +131,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'Email Address',
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
-                    validator: (val) =>
-                        val == null || !val.contains('@') ? 'Enter a valid email' : null,
+                    validator: (val) => val == null || !val.contains('@')
+                        ? 'Enter a valid email'
+                        : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -132,8 +144,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'Password',
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
-                    validator: (val) =>
-                        val == null || val.length < 6 ? 'Password must be 6+ chars' : null,
+                    validator: (val) => val == null || val.length < 6
+                        ? 'Password must be 6+ chars'
+                        : null,
                   ),
                   const SizedBox(height: 24),
 
@@ -143,9 +156,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(
                             width: 24,
                             height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
                           )
-                        : Text(_isSignUp ? 'Continue to KYC Registration' : 'Sign In'),
+                        : Text(_isSignUp
+                            ? 'Continue to KYC Registration'
+                            : 'Sign In'),
                   ),
                   const SizedBox(height: 16),
 
@@ -160,7 +176,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       _isSignUp
                           ? 'Already have an account? Sign In'
                           : 'New Counsellor? Register Here',
-                      style: const TextStyle(color: AppColors.primaryTeal),
+                      style: const TextStyle(
+                          color: AppColors.primaryNavy,
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],

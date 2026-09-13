@@ -59,7 +59,8 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
       RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {},
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {},
-        onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+        onUserOffline: (RtcConnection connection, int remoteUid,
+            UserOfflineReasonType reason) {
           _endCall();
         },
       ),
@@ -168,7 +169,8 @@ class _AudioCallScreenState extends State<AudioCallScreen> {
                       shape: BoxShape.circle,
                       color: AppColors.audioCallAccent,
                     ),
-                    child: const Icon(Icons.person, size: 70, color: Colors.white),
+                    child:
+                        const Icon(Icons.person, size: 70, color: Colors.white),
                   ),
                 ],
               ),

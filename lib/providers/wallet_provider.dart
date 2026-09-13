@@ -54,14 +54,16 @@ class WalletProvider extends ChangeNotifier {
 
       await _firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(docRef);
-        final currentBalance = (snapshot.data()?['totalBalance'] ?? 0.0).toDouble();
+        final currentBalance =
+            (snapshot.data()?['totalBalance'] ?? 0.0).toDouble();
 
         if (currentBalance < amount) {
           throw Exception('Insufficient balance. Available: ₹$currentBalance');
         }
 
         final newBalance = currentBalance - amount;
-        final currentPending = (snapshot.data()?['pendingPayouts'] ?? 0.0).toDouble();
+        final currentPending =
+            (snapshot.data()?['pendingPayouts'] ?? 0.0).toDouble();
 
         transaction.update(docRef, {
           'totalBalance': newBalance,

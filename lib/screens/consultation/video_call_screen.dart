@@ -64,7 +64,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           if (mounted) setState(() => _remoteUid = remoteUid);
         },
-        onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+        onUserOffline: (RtcConnection connection, int remoteUid,
+            UserOfflineReasonType reason) {
           if (mounted) setState(() => _remoteUid = null);
           _endCall();
         },
@@ -140,7 +141,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(20),
@@ -160,7 +162,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                         const SizedBox(width: 8),
                         Text(
                           '• ${_formatDuration(_secondsElapsed)}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13),
                         ),
                       ],
                     ),
@@ -194,7 +197,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                           ),
                         )
                       : const Center(
-                          child: Icon(Icons.videocam_off, color: Colors.white54),
+                          child:
+                              Icon(Icons.videocam_off, color: Colors.white54),
                         ),
                 ),
               ),
@@ -206,7 +210,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               left: 24,
               right: 24,
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
                 decoration: BoxDecoration(
                   color: AppColors.cardDark.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(30),

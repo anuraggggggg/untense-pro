@@ -71,7 +71,8 @@ class _RegistrationVerificationScreenState
     } else if (_currentStep == 1) {
       if (_selectedSpecializations.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select at least one specialization.')),
+          const SnackBar(
+              content: Text('Please select at least one specialization.')),
         );
         return;
       }
@@ -100,8 +101,9 @@ class _RegistrationVerificationScreenState
     for (var doc in requiredDocs) {
       if (!_pickedDocuments.containsKey(doc)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Please upload all 4 required verification documents.'),
+          const SnackBar(
+            content:
+                Text('Please upload all 4 required verification documents.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -130,7 +132,8 @@ class _RegistrationVerificationScreenState
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(counsellorProvider.errorMessage ?? 'KYC submission failed'),
+          content:
+              Text(counsellorProvider.errorMessage ?? 'KYC submission failed'),
           backgroundColor: Colors.red,
         ),
       );
@@ -152,16 +155,17 @@ class _RegistrationVerificationScreenState
         ],
       ),
       body: counsellorProvider.isSubmitting
-          ? Center(
+          ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CircularProgressIndicator(color: AppColors.primaryTeal),
-                  const SizedBox(height: 16),
-                  const Text('Uploading documents & submitting KYC verification...'),
+                  CircularProgressIndicator(color: AppColors.primaryNavy),
+                  SizedBox(height: 16),
+                  Text('Uploading documents & submitting KYC verification...'),
                 ],
               ),
             )
+
           : Stepper(
               type: StepperType.horizontal,
               currentStep: _currentStep,
@@ -175,7 +179,8 @@ class _RegistrationVerificationScreenState
                       Expanded(
                         child: ElevatedButton(
                           onPressed: details.onStepContinue,
-                          child: Text(_currentStep == 2 ? 'Submit KYC' : 'Next Step'),
+                          child: Text(
+                              _currentStep == 2 ? 'Submit KYC' : 'Next Step'),
                         ),
                       ),
                       if (_currentStep > 0) ...[
@@ -202,7 +207,8 @@ class _RegistrationVerificationScreenState
                 Step(
                   title: const Text('Basic Info'),
                   isActive: _currentStep >= 0,
-                  state: _currentStep > 0 ? StepState.complete : StepState.editing,
+                  state:
+                      _currentStep > 0 ? StepState.complete : StepState.editing,
                   content: Form(
                     key: _formKeyStep1,
                     child: Column(
@@ -210,9 +216,10 @@ class _RegistrationVerificationScreenState
                       children: [
                         Text(
                           'Personal & Professional Info',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -245,9 +252,10 @@ class _RegistrationVerificationScreenState
                             labelText: 'Years of Experience',
                             prefixIcon: Icon(Icons.work_history_outlined),
                           ),
-                          validator: (val) => val == null || int.tryParse(val) == null
-                              ? 'Enter valid years of experience'
-                              : null,
+                          validator: (val) =>
+                              val == null || int.tryParse(val) == null
+                                  ? 'Enter valid years of experience'
+                                  : null,
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
@@ -270,7 +278,8 @@ class _RegistrationVerificationScreenState
                 Step(
                   title: const Text('Specialties'),
                   isActive: _currentStep >= 1,
-                  state: _currentStep > 1 ? StepState.complete : StepState.editing,
+                  state:
+                      _currentStep > 1 ? StepState.complete : StepState.editing,
                   content: Form(
                     key: _formKeyStep2,
                     child: Column(
@@ -278,21 +287,24 @@ class _RegistrationVerificationScreenState
                       children: [
                         Text(
                           'Select Specializations',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Choose areas where you specialize as a counsellor.',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: AppConstants.specializations.map((spec) {
-                            final isSelected = _selectedSpecializations.contains(spec);
+                            final isSelected =
+                                _selectedSpecializations.contains(spec);
                             return FilterChip(
                               label: Text(spec),
                               selected: isSelected,
@@ -302,8 +314,9 @@ class _RegistrationVerificationScreenState
                                 color: isSelected
                                     ? AppColors.primaryTeal
                                     : AppColors.textPrimary,
-                                fontWeight:
-                                    isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                               onSelected: (selected) {
                                 setState(() {
@@ -320,16 +333,19 @@ class _RegistrationVerificationScreenState
                         const SizedBox(height: 24),
                         Text(
                           'Payout Details (UPI)',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _upiIdController,
                           decoration: const InputDecoration(
-                            labelText: 'UPI ID for Session Earnings (e.g. name@upi)',
-                            prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                            labelText:
+                                'UPI ID for Session Earnings (e.g. name@upi)',
+                            prefixIcon:
+                                Icon(Icons.account_balance_wallet_outlined),
                           ),
                           validator: (val) => val == null || !val.contains('@')
                               ? 'Enter valid UPI ID'
@@ -344,15 +360,18 @@ class _RegistrationVerificationScreenState
                 Step(
                   title: const Text('Documents'),
                   isActive: _currentStep >= 2,
-                  state: _currentStep == 2 ? StepState.editing : StepState.complete,
+                  state: _currentStep == 2
+                      ? StepState.editing
+                      : StepState.complete,
                   content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Upload Verification Documents',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -360,7 +379,6 @@ class _RegistrationVerificationScreenState
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       ),
                       const SizedBox(height: 16),
-
                       _buildDocTile(
                         title: 'Aadhaar Card',
                         subtitle: 'Front/Back scan or PDF',
@@ -408,7 +426,9 @@ class _RegistrationVerificationScreenState
         color: picked != null ? AppColors.mintBg : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: picked != null ? AppColors.primaryTealLight : AppColors.borderGrey,
+          color: picked != null
+              ? AppColors.primaryTealLight
+              : AppColors.borderGrey,
           width: picked != null ? 1.5 : 1.0,
         ),
       ),
@@ -429,7 +449,8 @@ class _RegistrationVerificationScreenState
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 Text(
                   picked != null ? picked.name : subtitle,
@@ -437,7 +458,9 @@ class _RegistrationVerificationScreenState
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
-                    color: picked != null ? AppColors.primaryTeal : Colors.grey[600],
+                    color: picked != null
+                        ? AppColors.primaryTeal
+                        : Colors.grey[600],
                   ),
                 ),
               ],
@@ -445,7 +468,8 @@ class _RegistrationVerificationScreenState
           ),
           ElevatedButton.icon(
             onPressed: () => _pickFile(docType),
-            icon: Icon(picked != null ? Icons.refresh : Icons.upload_file, size: 18),
+            icon: Icon(picked != null ? Icons.refresh : Icons.upload_file,
+                size: 18),
             label: Text(picked != null ? 'Change' : 'Upload'),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(100, 38),

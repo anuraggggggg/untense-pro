@@ -38,11 +38,8 @@ class AuthProvider extends ChangeNotifier {
 
   void _listenToCounsellorDoc(String uid) {
     _counsellorSubscription?.cancel();
-    _counsellorSubscription = _firestore
-        .collection('counsellors')
-        .doc(uid)
-        .snapshots()
-        .listen((doc) {
+    _counsellorSubscription =
+        _firestore.collection('counsellors').doc(uid).snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
         _counsellor = CounsellorModel.fromMap(doc.data()!, doc.id);
       } else {
@@ -71,7 +68,8 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      await _auth.createUserWithEmailAndPassword(
+          email: email, password: password);
     } finally {
       _isLoading = false;
       notifyListeners();

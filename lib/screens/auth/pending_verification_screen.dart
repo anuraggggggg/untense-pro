@@ -11,7 +11,8 @@ class PendingVerificationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final counsellor = authProvider.counsellor;
-    final isRejected = counsellor?.verificationStatus == VerificationStatus.rejected;
+    final isRejected =
+        counsellor?.verificationStatus == VerificationStatus.rejected;
 
     return Scaffold(
       appBar: AppBar(
@@ -37,14 +38,20 @@ class PendingVerificationScreen extends StatelessWidget {
                   color: isRejected ? Colors.red[50] : AppColors.mintBg,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isRejected ? AppColors.rejectedRed : AppColors.pendingYellow,
+                    color: isRejected
+                        ? AppColors.rejectedRed
+                        : AppColors.pendingYellow,
                     width: 3,
                   ),
                 ),
                 child: Icon(
-                  isRejected ? Icons.gavel_outlined : Icons.hourglass_top_outlined,
+                  isRejected
+                      ? Icons.gavel_outlined
+                      : Icons.hourglass_top_outlined,
                   size: 52,
-                  color: isRejected ? AppColors.rejectedRed : AppColors.pendingYellow,
+                  color: isRejected
+                      ? AppColors.rejectedRed
+                      : AppColors.pendingYellow,
                 ),
               ),
               const SizedBox(height: 24),
@@ -55,7 +62,9 @@ class PendingVerificationScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: isRejected ? AppColors.rejectedRed : AppColors.textPrimary,
+                      color: isRejected
+                          ? AppColors.rejectedRed
+                          : AppColors.textPrimary,
                     ),
               ),
               const SizedBox(height: 12),
@@ -72,7 +81,6 @@ class PendingVerificationScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 32),
-
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -105,15 +113,19 @@ class PendingVerificationScreen extends StatelessWidget {
                       context,
                       label: 'Current Status',
                       valueWidget: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isRejected ? Colors.red[100] : Colors.amber[100],
+                          color:
+                              isRejected ? Colors.red[100] : Colors.amber[100],
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           isRejected ? 'REJECTED' : 'PENDING REVIEW',
                           style: TextStyle(
-                            color: isRejected ? Colors.red[800] : Colors.amber[900],
+                            color: isRejected
+                                ? Colors.red[800]
+                                : Colors.amber[900],
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -123,9 +135,7 @@ class PendingVerificationScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const Spacer(),
-
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

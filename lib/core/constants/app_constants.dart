@@ -1,9 +1,9 @@
 class AppConstants {
   static const String appName = 'UnTense Professional';
-  
+
   // Agora App ID - Replace with your actual Agora App ID from Agora Console
   static const String agoraAppId = 'YOUR_AGORA_APP_ID';
-  
+
   // Specialization Options
   static const List<String> specializations = [
     'Anxiety & Stress',

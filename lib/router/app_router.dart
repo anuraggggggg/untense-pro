@@ -31,13 +31,17 @@ class AppRouter {
 
         // If authenticated but no counsellor profile document exists yet
         if (counsellor == null) {
-          return loc == '/registration-verification' ? null : '/registration-verification';
+          return loc == '/registration-verification'
+              ? null
+              : '/registration-verification';
         }
 
         // If verification is pending or rejected
         if (counsellor.verificationStatus == VerificationStatus.pending ||
             counsellor.verificationStatus == VerificationStatus.rejected) {
-          return loc == '/pending-verification' ? null : '/pending-verification';
+          return loc == '/pending-verification'
+              ? null
+              : '/pending-verification';
         }
 
         // If approved, block auth / pending screens and redirect to dashboard

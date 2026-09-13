@@ -1,4 +1,5 @@
 enum RequestType { chat, audio, video }
+
 enum RequestStatus { pending, accepted, declined, completed }
 
 class ConsultationRequestModel {
@@ -28,7 +29,8 @@ class ConsultationRequestModel {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  factory ConsultationRequestModel.fromMap(Map<String, dynamic> map, String id) {
+  factory ConsultationRequestModel.fromMap(
+      Map<String, dynamic> map, String id) {
     return ConsultationRequestModel(
       id: id,
       clientId: map['clientId'] ?? '',
