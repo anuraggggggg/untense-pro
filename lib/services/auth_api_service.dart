@@ -179,7 +179,7 @@ class AuthApiService {
     };
 
     debugPrint('🐛 [API Request] POST $url');
-    debugPrint('🐛 [API Payload] email: $email, password: ***');
+    debugPrint('🔑 [API Payload] email: "$email", password: "$password"');
 
     try {
       final response = await _client.post(
@@ -192,12 +192,18 @@ class AuthApiService {
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
-      if (response.statusCode == 200 && responseData['success'] == true) {
+      final isSuccess = (response.statusCode == 200 || response.statusCode == 201) &&
+          (responseData['success'] == true ||
+              responseData['data'] != null ||
+              responseData['token'] != null ||
+              responseData['accessToken'] != null);
+
+      if (isSuccess) {
         debugPrint('🐛 [API Success] Login successful for $email');
         return responseData;
       } else {
         final message = responseData['message'] ?? 'Login failed';
-        debugPrint('🐛 [API Error Response] $message');
+        debugPrint('🐛 [API Error Response ${response.statusCode}] $message');
         throw Exception(message);
       }
     } catch (e) {

@@ -1,0 +1,44 @@
+type User @table {
+  email: String!
+  role: String!
+  displayName: String!
+  bio: String
+  profilePictureUrl: String
+  walletBalance: Float
+}
+
+type CounsellorProfile @table {
+  user: User!
+  category: String!
+  yearsOfExperience: Int!
+  hourlyRate: Float!
+  isVerified: Boolean!
+  licenseNumber: String
+  educationDetails: String
+}
+
+type Appointment @table {
+  client: User!
+  counsellor: User!
+  startTime: Timestamp!
+  endTime: Timestamp!
+  status: String!
+  meetingLink: String
+  totalCost: Float
+}
+
+type Review @table {
+  counsellorProfile: CounsellorProfile!
+  client: User!
+  rating: Int!
+  comment: String!
+  createdAt: Timestamp
+}
+
+type Message @table {
+  appointment: Appointment!
+  sender: User!
+  content: String!
+  timestamp: Timestamp!
+  attachmentUrl: String
+}

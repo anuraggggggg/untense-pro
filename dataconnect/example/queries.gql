@@ -1,0 +1,163 @@
+mutation CreateUser {
+  user_insert(data: {
+    id_expr: "auth.uid",
+    email: "test@example.com",
+    role: "user",
+    displayName: "Test User"
+  })
+}
+
+mutation UpdateUser($bio: String) @auth(level: USER) {
+  user_update(key: {id_expr: "auth.uid"}, data: {bio: $bio})
+}
+
+mutation DeleteUser @auth(level: USER) {
+  user_delete(key: {id_expr: "auth.uid"})
+}
+
+query GetCurrentUser @auth(level: USER) {
+  user(key: {id_expr: "auth.uid"}) {
+    email
+    displayName
+    bio
+  }
+}
+
+query ListUsers @auth(level: PUBLIC, insecureReason: "Listing users is allowed for public discovery.") {
+  users {
+    id
+    displayName
+  }
+}
+
+mutation CreateCounsellorProfile($category: String!, $hourlyRate: Float!) @auth(level: USER) {
+  counsellorProfile_insert(data: {
+    userId_expr: "auth.uid",
+    category: $category,
+    hourlyRate: $hourlyRate,
+    yearsOfExperience: 0,
+    isVerified: false
+  })
+}
+
+mutation UpdateCounsellorProfile($id: UUID!, $hourlyRate: Float) @auth(level: USER) {
+  counsellorProfile_update(key: {id: $id}, data: {hourlyRate: $hourlyRate})
+}
+
+mutation DeleteCounsellorProfile($id: UUID!) @auth(level: USER) {
+  counsellorProfile_delete(key: {id: $id})
+}
+
+query GetCounsellorProfile($id: UUID!) @auth(level: PUBLIC, insecureReason: "Public profiles are needed for clients to find counsellors.") {
+  counsellorProfile(id: $id) {
+    category
+    hourlyRate
+    isVerified
+  }
+}
+
+query ListCounsellorProfiles @auth(level: PUBLIC, insecureReason: "Public list of profiles for discovery.") {
+  counsellorProfiles {
+    id
+    category
+    hourlyRate
+  }
+}
+
+mutation CreateAppointment($counsellorId: UUID!, $startTime: Timestamp!, $endTime: Timestamp!) @auth(level: USER) {
+  appointment_insert(data: {
+    clientId_expr: "auth.uid",
+    counsellorId: $counsellorId,
+    startTime: $startTime,
+    endTime: $endTime,
+    status: "pending"
+  })
+}
+
+mutation UpdateAppointment($id: UUID!, $status: String!) @auth(level: USER) {
+  appointment_update(key: {id: $id}, data: {status: $status})
+}
+
+mutation DeleteAppointment($id: UUID!) @auth(level: USER) {
+  appointment_delete(key: {id: $id})
+}
+
+query GetAppointment($id: UUID!) @auth(level: USER) {
+  appointment(id: $id) {
+    startTime
+    status
+    counsellor { displayName }
+  }
+}
+
+query ListMyAppointments @auth(level: USER) {
+  appointments(where: {clientId: {eq_expr: "auth.uid"}}) {
+    id
+    startTime
+    status
+  }
+}
+
+mutation CreateReview($counsellorProfileId: UUID!, $rating: Int!, $comment: String!) @auth(level: USER) {
+  review_insert(data: {
+    clientId_expr: "auth.uid",
+    counsellorProfileId: $counsellorProfileId,
+    rating: $rating,
+    comment: $comment
+  })
+}
+
+mutation UpdateReview($id: UUID!, $comment: String) @auth(level: USER) {
+  review_update(key: {id: $id}, data: {comment: $comment})
+}
+
+mutation DeleteReview($id: UUID!) @auth(level: USER) {
+  review_delete(key: {id: $id})
+}
+
+query GetReview($id: UUID!) @auth(level: PUBLIC, insecureReason: "Reviews are public testimonials.") {
+  review(id: $id) {
+    rating
+    comment
+  }
+}
+
+query ListReviews @auth(level: PUBLIC, insecureReason: "Listing reviews for counsellor transparency.") {
+  reviews {
+    id
+    rating
+    comment
+  }
+}
+
+mutation SendMessage($appointmentId: UUID!, $content: String!) @auth(level: USER) {
+  message_insert(data: {
+    appointmentId: $appointmentId,
+    senderId_expr: "auth.uid",
+    content: $content,
+    timestamp_time: {now: true}
+  })
+}
+
+mutation UpdateMessage($id: UUID!, $content: String!) @auth(level: USER) {
+  message_update(key: {id: $id}, data: {content: $content})
+}
+
+mutation DeleteMessage($id: UUID!) @auth(level: USER) {
+  message_delete(key: {id: $id})
+}
+
+query GetMessage($id: UUID!) @auth(level: USER) {
+  message(id: $id) {
+    content
+    timestamp
+  }
+}
+
+query ListMessages($appointmentId: UUID!) @auth(level: USER) {
+  messages(where: {appointmentId: {eq: $appointmentId}}, orderBy: [{timestamp: ASC}]) {
+    content
+    sender { displayName }
+    timestamp
+  }
+}

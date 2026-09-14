@@ -125,16 +125,6 @@ class AuthProvider extends ChangeNotifier {
         phoneOtp: phoneOtp,
       );
       debugPrint('🐛 [AuthProvider] Backend registration successful');
-
-      // Attempt Firebase signup as fallback/sync if credentials permit
-      try {
-        await _auth.createUserWithEmailAndPassword(
-            email: email, password: password);
-        debugPrint('🐛 [AuthProvider] Firebase user created for $email');
-      } catch (e) {
-        debugPrint(
-            '🐛 [AuthProvider Sync Warning] Firebase signup fallback: $e');
-      }
       return res;
     } catch (e) {
       debugPrint(
@@ -146,7 +136,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Sign in with email and password via Backend REST API & Firebase sync
+  /// Sign in with email and password via Backend REST API
   Future<void> signInWithEmailAndPassword(
       String email, String password) async {
     debugPrint(
@@ -154,21 +144,25 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    String? apiError;
     try {
-      // 1. Try Backend REST API login first
       final res =
           await _apiService.loginCounsellor(email: email, password: password);
-      _apiUserData = res['data'] is Map<String, dynamic>
-          ? res['data']
-          : <String, dynamic>{'email': email};
+      if (res['data'] is Map<String, dynamic>) {
+        _apiUserData = Map<String, dynamic>.from(res['data']);
+      } else if (res['user'] is Map<String, dynamic>) {
+        _apiUserData = Map<String, dynamic>.from(res['user']);
+      } else {
+        _apiUserData = <String, dynamic>{'email': email, ...res};
+      }
       debugPrint('🐛 [AuthProvider] REST API login successful for $email');
 
       final userData = _apiUserData!;
       _counsellor = CounsellorModel(
         uid: userData['id']?.toString() ??
+            userData['userId']?.toString() ??
+            userData['uid']?.toString() ??
             'api_user_${DateTime.now().millisecondsSinceEpoch}',
-        fullName: userData['fullName'] ?? 'Counsellor',
+        fullName: userData['fullName'] ?? userData['name'] ?? 'Counsellor',
         email: email,
         phone: userData['phone'] ?? '',
         yearsExperience: userData['experienceYears'] ?? 1,
@@ -179,25 +173,10 @@ class AuthProvider extends ChangeNotifier {
         verificationStatus: VerificationStatus.approved,
       );
     } catch (e) {
-      apiError = e.toString().replaceAll('Exception: ', '').trim();
+      final apiError = e.toString().replaceAll('Exception: ', '').trim();
       debugPrint(
-          '🐛 [AuthProvider REST API Warning] REST API login failed: $apiError');
-    }
-
-    // 2. Attempt Firebase login sync if available
-    try {
-      final credential = await _auth.signInWithEmailAndPassword(
-          email: email, password: password);
-      _firebaseUser = credential.user;
-      debugPrint('🐛 [AuthProvider] Firebase signin successful for $email');
-    } catch (e) {
-      debugPrint(
-          '🐛 [AuthProvider Firebase Warning] Firebase signin failed: $e');
-      // If REST API also failed, throw the REST API error message cleanly
-      if (_apiUserData == null) {
-        throw Exception(apiError ??
-            e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim());
-      }
+          '🐛 [AuthProvider Error] REST API login failed: $apiError');
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();

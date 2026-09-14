@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 
@@ -24,6 +25,31 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _errorMessage;
 
   String? _successMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFcmToken();
+  }
+
+  Future<void> _fetchFcmToken() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      debugPrint('FCM Notification Permission Status: ${settings.authorizationStatus}');
+      
+      String? token = await messaging.getToken();
+      debugPrint('================================================');
+      debugPrint('FCM TOKEN: $token');
+      debugPrint('================================================');
+    } catch (e) {
+      debugPrint('Error fetching FCM Token: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -108,11 +134,19 @@ class _LoginScreenState extends State<LoginScreen> {
       _successMessage = null;
     });
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    debugPrint('================================================');
+    debugPrint('🔑 [Login UI Input] Email: $email');
+    debugPrint('🔑 [Login UI Input] Password: $password');
+    debugPrint('================================================');
+
     final authProvider = context.read<AuthProvider>();
     try {
       await authProvider.signInWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+        email,
+        password,
       );
     } catch (e) {
       if (!mounted) return;
