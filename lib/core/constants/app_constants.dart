@@ -5,6 +5,8 @@ class AppConstants {
   static const String apiBaseUrl = 'http://65.0.73.114:4001/api/v1';
   static const String otpSendEndpoint = '/auth/otp/send';
   static const String otpVerifyEndpoint = '/auth/otp/verify';
+  static const String loginEndpoint = '/auth/login';
+  static const String counsellorMeEndpoint = '/counsellors/me';
 
   // Agora App ID - Replace with your actual Agora App ID from Agora Console
   static const String agoraAppId = 'YOUR_AGORA_APP_ID';

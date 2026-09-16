@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/app_error_bottom_sheet.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -105,7 +106,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final otp = _otpController.text.trim();
 
     try {
-      final success = await authProvider.verifyOtp(email, otp);
+      final success = await authProvider.verifyOtp(
+        email,
+        otp,
+        otpFor: 'LOGIN',
+      );
       if (!mounted) return;
       if (success) {
         setState(() {
@@ -127,6 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submitPassword() async {
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
     if (!mounted) return;
     setState(() {
@@ -137,11 +143,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    debugPrint('================================================');
-    debugPrint('🔑 [Login UI Input] Email: $email');
-    debugPrint('🔑 [Login UI Input] Password: $password');
-    debugPrint('================================================');
-
     final authProvider = context.read<AuthProvider>();
     try {
       await authProvider.signInWithEmailAndPassword(
@@ -149,10 +150,16 @@ class _LoginScreenState extends State<LoginScreen> {
         password,
       );
     } catch (e) {
+      final err = e.toString().replaceAll('Exception: ', '').trim();
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString().replaceAll(RegExp(r'\[.*?\]'), '').trim();
+        _errorMessage = err;
       });
+      showAppErrorBottomSheet(
+        context,
+        title: 'Login Failed',
+        message: err.isNotEmpty ? err : 'Unable to log in. Please check your credentials.',
+      );
     }
   }
 

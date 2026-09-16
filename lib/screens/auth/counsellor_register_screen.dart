@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/app_error_bottom_sheet.dart';
 
 class CounsellorRegisterScreen extends StatefulWidget {
   const CounsellorRegisterScreen({super.key});
@@ -19,27 +20,43 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
   final _formKeyStep2 = GlobalKey<FormState>();
   final _formKeyStep3 = GlobalKey<FormState>();
 
-  // Step 1: Personal & Account
+  // Step 1: Personal & Account Controllers & FocusNodes
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController(text: '+91');
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
-  // Step 2: OTP Verification
+  final _fullNameFocusNode = FocusNode();
+  final _emailFocusNode = FocusNode();
+  final _phoneFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+  final _confirmPasswordFocusNode = FocusNode();
+
+  // Step 2: OTP Verification Controllers & FocusNodes
   final _emailOtpController = TextEditingController();
   final _phoneOtpController = TextEditingController(text: '0000');
+
+  final _emailOtpFocusNode = FocusNode();
+
   bool _isSendingOtp = false;
-  bool _isVerifyingOtp = false;
   bool _otpSent = false;
   bool _isEmailOtpVerified = false;
+  bool _isSubmittingRegistration = false;
 
-  // Step 3: Professional & Govt ID
+  // Step 3: Professional & Govt ID Controllers & FocusNodes
   final _qualificationController = TextEditingController();
   final _expController = TextEditingController(text: '3');
   final _govtIdNumberController = TextEditingController();
-  String _selectedGovtIdType = 'AADHAAR';
 
-  String? _errorMessage;
+  final _qualificationFocusNode = FocusNode();
+  final _expFocusNode = FocusNode();
+  final _govtIdNumberFocusNode = FocusNode();
+
+  String _selectedGovtIdType = 'AADHAAR';
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
   String? _successMessage;
 
   final List<String> _govtIdTypes = [
@@ -56,20 +73,42 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
+
+    _fullNameFocusNode.dispose();
+    _emailFocusNode.dispose();
+    _phoneFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    _confirmPasswordFocusNode.dispose();
+
     _emailOtpController.dispose();
     _phoneOtpController.dispose();
+    _emailOtpFocusNode.dispose();
+
     _qualificationController.dispose();
     _expController.dispose();
     _govtIdNumberController.dispose();
+
+    _qualificationFocusNode.dispose();
+    _expFocusNode.dispose();
+    _govtIdNumberFocusNode.dispose();
+
     super.dispose();
   }
 
   Future<void> _sendEmailOtp() async {
-    if (!_formKeyStep1.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+
+    if (!_formKeyStep1.currentState!.validate()) {
+      _focusFirstInvalidStep1Field();
+      return;
+    }
+
+    if (_isSendingOtp) return;
+
     if (!mounted) return;
     setState(() {
       _isSendingOtp = true;
-      _errorMessage = null;
       _successMessage = null;
     });
 
@@ -81,26 +120,24 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
       if (!mounted) return;
       setState(() {
         _otpSent = true;
-        _successMessage = 'OTP code sent to $email';
+        _successMessage = 'OTP code sent successfully to $email';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('OTP sent successfully to $email'),
+          content: Text('✓ OTP sent successfully to $email'),
           backgroundColor: AppColors.onlineGreen,
         ),
       );
     } catch (e) {
       final err = e.toString().replaceAll('Exception: ', '').trim();
       if (!mounted) return;
-      setState(() {
-        _errorMessage = err;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to send OTP: $err'),
-          backgroundColor: Colors.red,
-        ),
+      showAppErrorBottomSheet(
+        context,
+        title: 'Failed to Send OTP',
+        message: err.isNotEmpty
+            ? err
+            : 'Unable to send OTP at this time. Please check your internet connection and email address.',
       );
     } finally {
       if (mounted) {
@@ -109,62 +146,19 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
     }
   }
 
-  Future<void> _verifyEmailOtp() async {
-    final otp = _emailOtpController.text.trim();
-    if (otp.length != 6) {
-      if (!mounted) return;
-      setState(() => _errorMessage = 'Enter 6-digit OTP code');
+  Future<void> _submitRegistration() async {
+    FocusScope.of(context).unfocus();
+
+    if (!_formKeyStep3.currentState!.validate()) {
+      _focusFirstInvalidStep3Field();
       return;
     }
 
+    if (_isSubmittingRegistration) return;
+
     if (!mounted) return;
     setState(() {
-      _isVerifyingOtp = true;
-      _errorMessage = null;
-      _successMessage = null;
-    });
-
-    try {
-      final email = _emailController.text.trim();
-      final authProvider = context.read<AuthProvider>();
-      final success = await authProvider.verifyOtp(email, otp);
-      if (success) {
-        if (!mounted) return;
-        setState(() {
-          _isEmailOtpVerified = true;
-          _successMessage = '✓ Email OTP Verified Successfully!';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Email OTP Verified Successfully!'),
-            backgroundColor: AppColors.onlineGreen,
-          ),
-        );
-      }
-    } catch (e) {
-      final err = e.toString().replaceAll('Exception: ', '').trim();
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = err;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('OTP Verification Failed: $err'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isVerifyingOtp = false);
-      }
-    }
-  }
-
-  Future<void> _submitRegistration() async {
-    if (!_formKeyStep3.currentState!.validate()) return;
-    if (!mounted) return;
-    setState(() {
-      _errorMessage = null;
+      _isSubmittingRegistration = true;
       _successMessage = null;
     });
 
@@ -176,7 +170,9 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
       final fullName = _fullNameController.text.trim();
       final qualification = _qualificationController.text.trim();
       final experienceYears = int.parse(_expController.text.trim());
-      final govtIdNumber = _govtIdNumberController.text.trim();
+      // Strip spaces from Govt ID number
+      final govtIdNumber =
+          _govtIdNumberController.text.trim().replaceAll(' ', '');
       final emailOtp = _emailOtpController.text.trim();
       final phoneOtp = _phoneOtpController.text.trim();
 
@@ -204,32 +200,42 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
     } catch (e) {
       final err = e.toString().replaceAll('Exception: ', '').trim();
       if (!mounted) return;
-      setState(() {
-        _errorMessage = err;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Registration Failed: $err'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-        ),
+      showAppErrorBottomSheet(
+        context,
+        title: 'Registration Failed',
+        message: err.isNotEmpty
+            ? err
+            : 'Could not complete your registration. Please verify your OTP code and details.',
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingRegistration = false);
+      }
     }
   }
 
   void _onStepContinue() {
+    FocusScope.of(context).unfocus();
+
     if (_currentStep == 0) {
       if (_formKeyStep1.currentState!.validate()) {
         setState(() => _currentStep += 1);
+      } else {
+        _focusFirstInvalidStep1Field();
       }
     } else if (_currentStep == 1) {
-      if (_emailOtpController.text.trim().length != 6) {
-        setState(
-            () => _errorMessage = 'Please enter a valid 6-digit Email OTP');
+      final otp = _emailOtpController.text.trim();
+      if (otp.length != 6 || int.tryParse(otp) == null) {
+        _emailOtpFocusNode.requestFocus();
+        showAppErrorBottomSheet(
+          context,
+          title: 'Invalid OTP',
+          message: 'Please enter a valid 6-digit OTP code sent to your email address.',
+        );
         return;
       }
       setState(() {
-        _errorMessage = null;
+        _isEmailOtpVerified = true;
         _currentStep += 1;
       });
     } else if (_currentStep == 2) {
@@ -238,17 +244,69 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
   }
 
   void _onStepCancel() {
+    FocusScope.of(context).unfocus();
     if (_currentStep > 0) {
       setState(() {
-        _errorMessage = null;
         _currentStep -= 1;
       });
     }
   }
 
+  void _focusFirstInvalidStep1Field() {
+    if (_fullNameController.text.trim().length < 3) {
+      _fullNameFocusNode.requestFocus();
+    } else if (_emailController.text.trim().isEmpty ||
+        !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+            .hasMatch(_emailController.text.trim())) {
+      _emailFocusNode.requestFocus();
+    } else if (_phoneController.text.trim().length < 10) {
+      _phoneFocusNode.requestFocus();
+    } else if (_passwordController.text.length < 8) {
+      _passwordFocusNode.requestFocus();
+    } else if (_confirmPasswordController.text != _passwordController.text) {
+      _confirmPasswordFocusNode.requestFocus();
+    }
+  }
+
+  void _focusFirstInvalidStep3Field() {
+    if (_qualificationController.text.trim().isEmpty) {
+      _qualificationFocusNode.requestFocus();
+    } else if (_expController.text.trim().isEmpty ||
+        int.tryParse(_expController.text.trim()) == null) {
+      _expFocusNode.requestFocus();
+    } else if (_govtIdNumberController.text.trim().isEmpty) {
+      _govtIdNumberFocusNode.requestFocus();
+    }
+  }
+
+  String? _validateGovtIdNumber(String? val) {
+    if (val == null || val.trim().isEmpty) {
+      return 'Please enter your Government ID number.';
+    }
+    final cleanId = val.trim().replaceAll(' ', '');
+    if (_selectedGovtIdType == 'AADHAAR') {
+      if (cleanId.length != 12 || int.tryParse(cleanId) == null) {
+        return 'Please enter a valid 12-digit Aadhaar number.';
+      }
+    } else if (_selectedGovtIdType == 'PAN') {
+      if (cleanId.length != 10 ||
+          !RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(cleanId.toUpperCase())) {
+        return 'Please enter a valid 10-character PAN number.';
+      }
+    } else {
+      if (cleanId.length < 5) {
+        return 'Please enter a valid ID number.';
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final isBusy = authProvider.isLoading ||
+        _isSendingOtp ||
+        _isSubmittingRegistration;
 
     return Scaffold(
       appBar: AppBar(
@@ -261,39 +319,11 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Status & Feedback Banner
-            if (_errorMessage != null)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.red[200]!),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline,
-                        color: Colors.red, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
+            // Success Feedback Banner
             if (_successMessage != null)
               Container(
                 width: double.infinity,
-                margin: const EdgeInsets.all(16),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.green[50],
@@ -323,8 +353,8 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
               child: Stepper(
                 type: StepperType.horizontal,
                 currentStep: _currentStep,
-                onStepContinue: _onStepContinue,
-                onStepCancel: _onStepCancel,
+                onStepContinue: isBusy ? null : _onStepContinue,
+                onStepCancel: isBusy ? null : _onStepCancel,
                 controlsBuilder: (context, details) {
                   return Container(
                     margin: const EdgeInsets.only(top: 24),
@@ -332,12 +362,8 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: authProvider.isLoading ||
-                                    _isSendingOtp ||
-                                    _isVerifyingOtp
-                                ? null
-                                : details.onStepContinue,
-                            child: authProvider.isLoading
+                            onPressed: isBusy ? null : details.onStepContinue,
+                            child: isBusy
                                 ? const SizedBox(
                                     width: 24,
                                     height: 24,
@@ -355,7 +381,7 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: details.onStepCancel,
+                              onPressed: isBusy ? null : details.onStepCancel,
                               child: const Text('Back'),
                             ),
                           ),
@@ -374,6 +400,7 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                         : StepState.editing,
                     content: Form(
                       key: _formKeyStep1,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -390,58 +417,126 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _fullNameController,
+                            focusNode: _fullNameFocusNode,
+                            textCapitalization: TextCapitalization.words,
                             decoration: const InputDecoration(
                               labelText: 'Full Name (Dr. / Mr. / Ms.)',
                               prefixIcon: Icon(Icons.person_outline),
                             ),
-                            validator: (val) =>
-                                val == null || val.trim().isEmpty
-                                    ? 'Enter your full name'
-                                    : null,
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter your full name.';
+                              }
+                              if (val.trim().length < 3) {
+                                return 'Name must be at least 3 characters.';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _emailController,
+                            focusNode: _emailFocusNode,
                             keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
                               labelText: 'Email Address',
                               prefixIcon: Icon(Icons.email_outlined),
                             ),
-                            validator: (val) =>
-                                val == null || !val.contains('@')
-                                    ? 'Enter a valid email'
-                                    : null,
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter your email address.';
+                              }
+                              final regex = RegExp(
+                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                              if (!regex.hasMatch(val.trim())) {
+                                return 'Please enter a valid email address.';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _phoneController,
+                            focusNode: _phoneFocusNode,
                             keyboardType: TextInputType.phone,
                             decoration: const InputDecoration(
                               labelText: 'Phone Number (with country code)',
                               prefixIcon: Icon(Icons.phone_outlined),
+                              hintText: '+919876543210',
                             ),
-                            validator: (val) => val == null || val.length < 10
-                                ? 'Enter valid phone number (e.g. +919876543210)'
-                                : null,
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter your phone number.';
+                              }
+                              final cleanPhone = val.trim().replaceAll(' ', '');
+                              if (cleanPhone.length < 10) {
+                                return 'Please enter a valid phone number.';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _passwordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
+                            focusNode: _passwordFocusNode,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
                               labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock_outline),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
                               helperText:
-                                  'Must contain uppercase, lowercase, digit, and special symbol',
+                                  'Min 8 chars, uppercase, lowercase, digit & symbol',
                             ),
                             validator: (val) {
-                              if (val == null || val.length < 8) {
-                                return 'Password must be at least 8 characters';
+                              if (val == null || val.isEmpty) {
+                                return 'Please enter a password.';
+                              }
+                              if (val.length < 8) {
+                                return 'Password must be at least 8 characters.';
                               }
                               final regex = RegExp(
                                   r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$');
                               if (!regex.hasMatch(val)) {
-                                return 'Include uppercase, lowercase, number & symbol';
+                                return 'Include uppercase, lowercase, number & symbol.';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            focusNode: _confirmPasswordFocusNode,
+                            obscureText: _obscureConfirmPassword,
+                            decoration: InputDecoration(
+                              labelText: 'Confirm Password',
+                              prefixIcon: const Icon(Icons.lock_reset),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscureConfirmPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (val) {
+                              if (val == null || val.isEmpty) {
+                                return 'Please confirm your password.';
+                              }
+                              if (val != _passwordController.text) {
+                                return 'Passwords do not match.';
                               }
                               return null;
                             },
@@ -460,6 +555,7 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                         : StepState.editing,
                     content: Form(
                       key: _formKeyStep2,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -476,7 +572,14 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                           const SizedBox(height: 16),
                           OutlinedButton.icon(
                             onPressed: _isSendingOtp ? null : _sendEmailOtp,
-                            icon: const Icon(Icons.send_rounded),
+                            icon: _isSendingOtp
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.send_rounded),
                             label: Text(_otpSent
                                 ? 'Resend Email OTP Code'
                                 : 'Send Email OTP Code'),
@@ -484,6 +587,7 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _emailOtpController,
+                            focusNode: _emailOtpFocusNode,
                             keyboardType: TextInputType.number,
                             maxLength: 6,
                             decoration: InputDecoration(
@@ -495,37 +599,18 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                                       color: AppColors.onlineGreen)
                                   : null,
                             ),
-                            validator: (val) => val == null || val.length != 6
-                                ? 'Enter 6-digit OTP code sent to your email'
-                                : null,
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter the 6-digit Email OTP.';
+                              }
+                              if (val.trim().length != 6 ||
+                                  int.tryParse(val.trim()) == null) {
+                                return 'Please enter a valid 6-digit OTP.';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed:
-                                  _isVerifyingOtp ? null : _verifyEmailOtp,
-                              icon: const Icon(Icons.verified_outlined),
-                              label: _isVerifyingOtp
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(_isEmailOtpVerified
-                                      ? 'Email OTP Verified ✓'
-                                      : 'Verify Email OTP Code'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _isEmailOtpVerified
-                                    ? AppColors.onlineGreen
-                                    : AppColors.primaryNavy,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
                           TextFormField(
                             controller: _phoneOtpController,
                             keyboardType: TextInputType.number,
@@ -534,9 +619,16 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                               labelText: '4-digit Phone OTP',
                               prefixIcon: Icon(Icons.sms_outlined),
                             ),
-                            validator: (val) => val == null || val.length != 4
-                                ? 'Enter 4-digit Phone OTP'
-                                : null,
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter Phone OTP.';
+                              }
+                              if (val.trim().length != 4 ||
+                                  int.tryParse(val.trim()) == null) {
+                                return 'Please enter a valid 4-digit OTP.';
+                              }
+                              return null;
+                            },
                           ),
                         ],
                       ),
@@ -552,6 +644,7 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                         : StepState.complete,
                     content: Form(
                       key: _formKeyStep3,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -568,6 +661,8 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _qualificationController,
+                            focusNode: _qualificationFocusNode,
+                            textCapitalization: TextCapitalization.words,
                             decoration: const InputDecoration(
                               labelText: 'Qualification / Degree',
                               prefixIcon: Icon(Icons.school_outlined),
@@ -575,12 +670,13 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                             ),
                             validator: (val) =>
                                 val == null || val.trim().isEmpty
-                                    ? 'Enter qualification'
+                                    ? 'Please enter your qualification.'
                                     : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _expController,
+                            focusNode: _expFocusNode,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               labelText: 'Years of Experience',
@@ -588,12 +684,12 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                                   Icon(Icons.workspace_premium_outlined),
                             ),
                             validator: (val) {
-                              if (val == null || val.isEmpty) {
-                                return 'Enter experience';
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Please enter years of experience.';
                               }
-                              final num = int.tryParse(val);
-                              if (num == null || num < 0) {
-                                return 'Enter valid number';
+                              final num = int.tryParse(val.trim());
+                              if (num == null || num < 0 || num > 50) {
+                                return 'Please enter valid experience (0-50 years).';
                               }
                               return null;
                             },
@@ -620,14 +716,19 @@ class _CounsellorRegisterScreenState extends State<CounsellorRegisterScreen> {
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _govtIdNumberController,
-                            decoration: const InputDecoration(
+                            focusNode: _govtIdNumberFocusNode,
+                            textCapitalization: TextCapitalization.characters,
+                            decoration: InputDecoration(
                               labelText: 'Government ID Number',
-                              prefixIcon: Icon(Icons.card_membership_outlined),
+                              prefixIcon:
+                                  const Icon(Icons.card_membership_outlined),
+                              hintText: _selectedGovtIdType == 'AADHAAR'
+                                  ? '12-digit Aadhaar number'
+                                  : (_selectedGovtIdType == 'PAN'
+                                      ? '10-character PAN number'
+                                      : 'ID Number'),
                             ),
-                            validator: (val) =>
-                                val == null || val.trim().isEmpty
-                                    ? 'Enter Government ID number'
-                                    : null,
+                            validator: _validateGovtIdNumber,
                           ),
                         ],
                       ),

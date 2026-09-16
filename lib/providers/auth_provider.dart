@@ -2,47 +2,63 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/counsellor_model.dart';
 import '../services/auth_api_service.dart';
 
 class AuthProvider extends ChangeNotifier {
+  static const String _authTokenKey = 'jwt_auth_token';
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final AuthApiService _apiService = AuthApiService();
 
   User? _firebaseUser;
+  String? _token;
   Map<String, dynamic>? _apiUserData;
   CounsellorModel? _counsellor;
   bool _isLoading = true;
   StreamSubscription? _counsellorSubscription;
 
   User? get firebaseUser => _firebaseUser;
+  String? get token => _token;
   CounsellorModel? get counsellor => _counsellor;
   Map<String, dynamic>? get apiUserData => _apiUserData;
   bool get isLoading => _isLoading;
   bool get isAuthenticated =>
-      _firebaseUser != null || _apiUserData != null || _counsellor != null;
+      _token != null || _firebaseUser != null || _counsellor != null;
 
   AuthProvider() {
-    _init();
+    _initSession();
   }
 
-  void _init() {
-    _auth.authStateChanges().listen((User? user) async {
-      _firebaseUser = user;
-      debugPrint(
-          '🐛 [AuthProvider] authStateChanges: user = ${user?.email ?? "null"}');
-      if (user != null) {
-        _listenToCounsellorDoc(user.uid);
+  Future<void> _initSession() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedToken = prefs.getString(_authTokenKey);
+
+      if (storedToken != null && storedToken.isNotEmpty) {
+        debugPrint('🐛 [Auth] Found stored JWT token. Restoring session via GET /counsellors/me...');
+        final profileData = await _apiService.getCounsellorProfile(token: storedToken);
+        _token = storedToken;
+        _counsellor = CounsellorModel.fromApiJson(profileData);
+        debugPrint('🐛 [Auth] Session restored successfully for counsellor: ${_counsellor?.fullName}');
       } else {
-        if (_apiUserData == null) {
-          _counsellor = null;
-        }
-        _counsellorSubscription?.cancel();
-        _isLoading = false;
-        notifyListeners();
+        debugPrint('🐛 [Auth] No stored JWT token found.');
       }
-    });
+    } catch (e) {
+      debugPrint('🐛 [Auth Error] Failed to restore session from token: $e');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_authTokenKey);
+      _token = null;
+      _counsellor = null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   void _listenToCounsellorDoc(String uid) {
@@ -54,9 +70,6 @@ class AuthProvider extends ChangeNotifier {
         _counsellor = CounsellorModel.fromMap(doc.data()!, doc.id);
         debugPrint(
             '🐛 [AuthProvider] Counsellor doc loaded: status = ${_counsellor?.verificationStatus}');
-      } else {
-        _counsellor = null;
-        debugPrint('🐛 [AuthProvider] Counsellor doc does not exist');
       }
       _isLoading = false;
       notifyListeners();
@@ -82,10 +95,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Verifies OTP code via Backend REST API (POST /auth/otp/verify)
-  Future<bool> verifyOtp(String email, String otp) async {
-    debugPrint('🐛 [AuthProvider] Initiating verifyOtp for $email');
+  Future<bool> verifyOtp(String email, String otp,
+      {String otpFor = 'COUNSELLOR_REGISTRATION'}) async {
+    debugPrint('🐛 [AuthProvider] Initiating verifyOtp for $email ($otpFor)');
     try {
-      await _apiService.verifyOtp(email: email, otp: otp);
+      await _apiService.verifyOtp(email: email, otp: otp, otpFor: otpFor);
       debugPrint('🐛 [AuthProvider] verifyOtp succeeded for $email');
       return true;
     } catch (e) {
@@ -140,42 +154,37 @@ class AuthProvider extends ChangeNotifier {
   Future<void> signInWithEmailAndPassword(
       String email, String password) async {
     debugPrint(
-        '🐛 [AuthProvider] Initiating signInWithEmailAndPassword for $email');
+        '🐛 [Auth] Initiating signInWithEmailAndPassword for $email');
     _isLoading = true;
     notifyListeners();
 
     try {
+      // 1. Call POST /auth/login
       final res =
           await _apiService.loginCounsellor(email: email, password: password);
-      if (res['data'] is Map<String, dynamic>) {
-        _apiUserData = Map<String, dynamic>.from(res['data']);
-      } else if (res['user'] is Map<String, dynamic>) {
-        _apiUserData = Map<String, dynamic>.from(res['user']);
-      } else {
-        _apiUserData = <String, dynamic>{'email': email, ...res};
-      }
-      debugPrint('🐛 [AuthProvider] REST API login successful for $email');
+      
+      final jwtToken = res['token'] as String;
+      final userData = res['user'] as Map<String, dynamic>?;
 
-      final userData = _apiUserData!;
-      _counsellor = CounsellorModel(
-        uid: userData['id']?.toString() ??
-            userData['userId']?.toString() ??
-            userData['uid']?.toString() ??
-            'api_user_${DateTime.now().millisecondsSinceEpoch}',
-        fullName: userData['fullName'] ?? userData['name'] ?? 'Counsellor',
-        email: email,
-        phone: userData['phone'] ?? '',
-        yearsExperience: userData['experienceYears'] ?? 1,
-        bio: userData['qualification'] ?? 'Therapist',
-        specializations: [],
-        upiId: '',
-        documents: {},
-        verificationStatus: VerificationStatus.approved,
-      );
+      // 2. Persist Token locally
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_authTokenKey, jwtToken);
+
+      // 3. Immediately fetch Counsellor Profile GET /counsellors/me
+      final profileData = await _apiService.getCounsellorProfile(token: jwtToken);
+
+      // 4. Update internal state
+      _token = jwtToken;
+      _apiUserData = userData;
+      _counsellor = CounsellorModel.fromApiJson(profileData, email);
+
+      debugPrint('🐛 [Auth] DASHBOARD NAVIGATION');
     } catch (e) {
       final apiError = e.toString().replaceAll('Exception: ', '').trim();
       debugPrint(
-          '🐛 [AuthProvider Error] REST API login failed: $apiError');
+          '🐛 [Auth Error] REST API login failed: $apiError');
+      _token = null;
+      _counsellor = null;
       rethrow;
     } finally {
       _isLoading = false;
@@ -184,9 +193,16 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    debugPrint('🐛 [AuthProvider] Signing out user');
+    debugPrint('🐛 [Auth] Signing out user');
+    _token = null;
     _apiUserData = null;
     _counsellor = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_authTokenKey);
+    } catch (e) {
+      debugPrint('🐛 [Auth Error] Error removing token: $e');
+    }
     await _auth.signOut();
     notifyListeners();
   }
