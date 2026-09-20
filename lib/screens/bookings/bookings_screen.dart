@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/auth_api_service.dart';
+import '../../widgets/app_shimmer.dart';
 
 class BookingsScreen extends StatefulWidget {
   const BookingsScreen({super.key});
@@ -9,282 +14,644 @@ class BookingsScreen extends StatefulWidget {
   State<BookingsScreen> createState() => _BookingsScreenState();
 }
 
-class _BookingsScreenState extends State<BookingsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _BookingsScreenState extends State<BookingsScreen> {
+  final AuthApiService _apiService = AuthApiService();
+
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<Map<String, dynamic>> _bookings = [];
+  String _selectedStatusKey = 'ALL';
+
+  final Map<String, String> _statusOptions = {
+    'ALL': 'All statuses',
+    'PENDING_PAYMENT': 'Pending Payment',
+    'CONFIRMED': 'Confirmed',
+    'IN_PROGRESS': 'In Progress',
+    'COMPLETED': 'Completed',
+    'CANCELLED_BY_CUSTOMER': 'Cancelled By Customer',
+    'CANCELLED_BY_COUNSELLOR': 'Cancelled By Counsellor',
+    'RESCHEDULED': 'Rescheduled',
+    'NO_SHOW_CUSTOMER': 'No Show Customer',
+    'NO_SHOW_COUNSELLOR': 'No Show Counsellor',
+  };
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _fetchBookings();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _fetchBookings() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      String? token = authProvider.token;
+      if (token == null || token.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        token = prefs.getString('jwt_auth_token');
+      }
+
+      if (token == null || token.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Authentication token missing. Please log in again.';
+        });
+        return;
+      }
+
+      final data = await _apiService.getCounsellorBookings(
+        token: token,
+        status: _selectedStatusKey != 'ALL' ? _selectedStatusKey : null,
+      );
+
+      setState(() {
+        _bookings = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('🐛 [BookingsScreen Error] $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load bookings: $e';
+      });
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Bookings'),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primaryNavy,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primaryCyan,
-          indicatorWeight: 3,
-          tabs: const [
-            Tab(text: 'Upcoming'),
-            Tab(text: 'Completed'),
-            Tab(text: 'Cancelled'),
-          ],
-        ),
+  String _formatDateTime(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'N/A';
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      return DateFormat('dd MMM yyyy, hh:mm a').format(dt).toLowerCase();
+    } catch (_) {
+      return isoString;
+    }
+  }
+
+  String _formatPrice(dynamic amount, String? currency) {
+    if (amount == null) return '₹0.00';
+    num val = 0;
+    if (amount is num) {
+      val = amount;
+    } else {
+      val = num.tryParse(amount.toString()) ?? 0;
+    }
+    final inRupees = val / 100.0;
+    final symbol = (currency == 'INR' || currency == null) ? '₹' : currency;
+    return '$symbol${inRupees.toStringAsFixed(2)}';
+  }
+
+  Widget _buildStatusBadge(String? status) {
+    final s = (status ?? 'PENDING').toUpperCase();
+
+    Color bgColor = const Color(0xFFEFF8FF);
+    Color textColor = const Color(0xFF175CD3);
+    IconData icon = Icons.info_outline;
+    String label = _statusOptions[s] ?? s;
+
+    if (s == 'COMPLETED') {
+      bgColor = const Color(0xFFD1FADF);
+      textColor = const Color(0xFF027A48);
+      icon = Icons.check_circle_outline;
+      label = 'Completed';
+    } else if (s == 'CONFIRMED') {
+      bgColor = const Color(0xFFEFF8FF);
+      textColor = const Color(0xFF175CD3);
+      icon = Icons.check_circle_outline;
+      label = 'Confirmed';
+    } else if (s == 'IN_PROGRESS') {
+      bgColor = const Color(0xFFFFE4E2);
+      textColor = const Color(0xFFB42318);
+      icon = Icons.play_circle_outline;
+      label = 'In Progress';
+    } else if (s == 'PENDING_PAYMENT') {
+      bgColor = const Color(0xFFFEF0C7);
+      textColor = const Color(0xFFB54708);
+      icon = Icons.access_time;
+      label = 'Pending Payment';
+    } else if (s.startsWith('CANCELLED')) {
+      bgColor = const Color(0xFFFEF3F2);
+      textColor = const Color(0xFFB42318);
+      icon = Icons.cancel_outlined;
+      label = s == 'CANCELLED_BY_CUSTOMER'
+          ? 'Cancelled By Customer'
+          : 'Cancelled By Counsellor';
+    } else if (s == 'RESCHEDULED') {
+      bgColor = const Color(0xFFF4F3FF);
+      textColor = const Color(0xFF5925DC);
+      icon = Icons.sync_rounded;
+      label = 'Rescheduled';
+    } else if (s.startsWith('NO_SHOW')) {
+      bgColor = const Color(0xFFF8F9FA);
+      textColor = const Color(0xFF344054);
+      icon = Icons.person_off_outlined;
+      label = s == 'NO_SHOW_CUSTOMER' ? 'No Show Customer' : 'No Show Counsellor';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildUpcomingBookings(),
-          _buildCompletedBookings(),
-          _buildCancelledBookings(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpcomingBookings() {
-    final upcomingList = [
-      {
-        'id': 'BK-1001',
-        'clientName': 'Ananya Sharma',
-        'type': 'Video Call',
-        'icon': Icons.videocam_outlined,
-        'badgeColor': AppColors.videoCallAccent,
-        'date': 'Today, 04:30 PM',
-        'duration': '45 mins',
-        'fee': '₹500',
-        'status': 'Confirmed',
-      },
-      {
-        'id': 'BK-1002',
-        'clientName': 'Rohan Mehta',
-        'type': 'Audio Call',
-        'icon': Icons.call_outlined,
-        'badgeColor': AppColors.audioCallAccent,
-        'date': 'Tomorrow, 11:00 AM',
-        'duration': '30 mins',
-        'fee': '₹400',
-        'status': 'Confirmed',
-      },
-      {
-        'id': 'BK-1003',
-        'clientName': 'Priya Nair',
-        'type': 'Text Chat',
-        'icon': Icons.chat_bubble_outline,
-        'badgeColor': AppColors.chatAccent,
-        'date': '22 Sep 2026, 06:00 PM',
-        'duration': '60 mins',
-        'fee': '₹600',
-        'status': 'Scheduled',
-      },
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: upcomingList.length,
-      itemBuilder: (context, index) {
-        final booking = upcomingList[index];
-        return _buildBookingCard(booking, isUpcoming: true);
-      },
-    );
-  }
-
-  Widget _buildCompletedBookings() {
-    final completedList = [
-      {
-        'id': 'BK-0988',
-        'clientName': 'Vikram Singh',
-        'type': 'Audio Call',
-        'icon': Icons.call_outlined,
-        'badgeColor': AppColors.audioCallAccent,
-        'date': 'Yesterday, 02:00 PM',
-        'duration': '45 mins',
-        'fee': '₹500',
-        'status': 'Completed',
-      },
-      {
-        'id': 'BK-0975',
-        'clientName': 'Sneha Kapoor',
-        'type': 'Video Call',
-        'icon': Icons.videocam_outlined,
-        'badgeColor': AppColors.videoCallAccent,
-        'date': '18 Sep 2026, 05:15 PM',
-        'duration': '45 mins',
-        'fee': '₹500',
-        'status': 'Completed',
-      },
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: completedList.length,
-      itemBuilder: (context, index) {
-        final booking = completedList[index];
-        return _buildBookingCard(booking, isUpcoming: false);
-      },
-    );
-  }
-
-  Widget _buildCancelledBookings() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.event_busy_outlined, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 12),
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 4),
           Text(
-            'No cancelled bookings',
-            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBookingCard(Map<String, dynamic> booking,
-      {required bool isUpcoming}) {
-    final Color badgeColor = booking['badgeColor'] as Color;
+  void _showBookingDetailsModal(BuildContext context, Map<String, dynamic> bookingSummary) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _BookingDetailsSheet(
+        bookingSummary: bookingSummary,
+        apiService: _apiService,
+        formatDateTime: _formatDateTime,
+        formatPrice: _formatPrice,
+        buildStatusBadge: _buildStatusBadge,
+      ),
+    );
+  }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 14),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  Widget build(BuildContext context) {
+    // Filter locally if needed
+    final filteredBookings = _selectedStatusKey == 'ALL'
+        ? _bookings
+        : _bookings.where((b) => (b['status']?.toString().toUpperCase() ?? '') == _selectedStatusKey).toList();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Row(
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: badgeColor.withValues(alpha: 0.12),
-                  child: Icon(booking['icon'] as IconData, color: badgeColor),
+            Icon(Icons.event_note_outlined, color: AppColors.primaryNavy, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Bookings',
+              style: TextStyle(
+                color: AppColors.primaryNavy,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedStatusKey,
+                    icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primaryNavy, size: 20),
+                    style: const TextStyle(
+                      color: AppColors.primaryNavy,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    onChanged: (String? newValue) {
+                      if (newValue != null && newValue != _selectedStatusKey) {
+                        setState(() {
+                          _selectedStatusKey = newValue;
+                        });
+                        _fetchBookings();
+                      }
+                    },
+                    items: _statusOptions.entries.map<DropdownMenuItem<String>>((entry) {
+                      return DropdownMenuItem<String>(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _fetchBookings,
+        color: AppColors.primaryCyan,
+        child: _isLoading
+            ? ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: 5,
+                itemBuilder: (context, index) => Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        booking['clientName'] as String,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryNavy,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          AppShimmer(child: ShimmerBox(width: 120, height: 18, borderRadius: 4)),
+                          AppShimmer(child: ShimmerBox(width: 100, height: 24, borderRadius: 12)),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'ID: ${booking['id']} • ${booking['duration']}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      SizedBox(height: 8),
+                      AppShimmer(child: ShimmerBox(width: 160, height: 14, borderRadius: 4)),
+                      SizedBox(height: 16),
+                      Row(
+                        children: [
+                          AppShimmer(child: ShimmerBox(width: 60, height: 16, borderRadius: 4)),
+                          SizedBox(width: 12),
+                          AppShimmer(child: ShimmerBox(width: 60, height: 16, borderRadius: 4)),
+                          Spacer(),
+                          AppShimmer(child: ShimmerBox(width: 70, height: 32, borderRadius: 8)),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    booking['type'] as String,
-                    style: TextStyle(
-                      color: badgeColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+              )
+            : _errorMessage != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+                          const SizedBox(height: 12),
+                          Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _fetchBookings,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryNavy,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  )
+                : filteredBookings.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.event_busy_outlined, size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No bookings found',
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 16, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredBookings.length,
+                        itemBuilder: (context, index) {
+                          final booking = filteredBookings[index];
+                          final categoryName = booking['category']?['name']?.toString() ?? 'General';
+                          final scheduledStart = booking['scheduledStartAt']?.toString();
+                          final formattedStart = _formatDateTime(scheduledStart);
+                          final mode = (booking['consultationMode']?.toString() ?? 'AUDIO').toUpperCase();
+                          final isVideo = mode == 'VIDEO';
+                          final priceStr = _formatPrice(booking['priceAmount'], booking['currency']?.toString());
+                          final status = booking['status']?.toString();
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade200),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  categoryName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryNavy,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  formattedStart,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      isVideo ? Icons.videocam_outlined : Icons.call_outlined,
+                                      size: 16,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isVideo ? 'Video' : 'Audio',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Text(
+                                      priceStr,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primaryNavy,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    _buildStatusBadge(status),
+                                    const Spacer(),
+                                    InkWell(
+                                      onTap: () => _showBookingDetailsModal(context, booking),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF2F4F7),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'View',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.primaryNavy,
+                                              ),
+                                            ),
+                                            SizedBox(width: 2),
+                                            Icon(Icons.chevron_right, size: 16, color: AppColors.primaryNavy),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+      ),
+    );
+  }
+}
+
+class _BookingDetailsSheet extends StatefulWidget {
+  final Map<String, dynamic> bookingSummary;
+  final AuthApiService apiService;
+  final String Function(String?) formatDateTime;
+  final String Function(dynamic, String?) formatPrice;
+  final Widget Function(String?) buildStatusBadge;
+
+  const _BookingDetailsSheet({
+    required this.bookingSummary,
+    required this.apiService,
+    required this.formatDateTime,
+    required this.formatPrice,
+    required this.buildStatusBadge,
+  });
+
+  @override
+  State<_BookingDetailsSheet> createState() => _BookingDetailsSheetState();
+}
+
+class _BookingDetailsSheetState extends State<_BookingDetailsSheet> {
+  bool _loadingDetails = true;
+  Map<String, dynamic>? _fullDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFullDetails();
+  }
+
+  Future<void> _loadFullDetails() async {
+    final bookingId = widget.bookingSummary['id']?.toString();
+    if (bookingId == null || bookingId.isEmpty) {
+      setState(() {
+        _fullDetails = widget.bookingSummary;
+        _loadingDetails = false;
+      });
+      return;
+    }
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      String? token = authProvider.token;
+      if (token == null || token.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        token = prefs.getString('jwt_auth_token');
+      }
+
+      if (token != null && token.isNotEmpty) {
+        final details = await widget.apiService.getBookingDetails(
+          token: token,
+          bookingId: bookingId,
+        );
+        if (mounted && details.isNotEmpty) {
+          setState(() {
+            _fullDetails = details;
+            _loadingDetails = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('🐛 [BookingDetails Error] $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _fullDetails = widget.bookingSummary;
+        _loadingDetails = false;
+      });
+    }
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w400,
+              ),
             ),
-            const Divider(height: 24, thickness: 0.8),
-            Row(
-              children: [
-                const Icon(Icons.access_time_rounded,
-                    size: 16, color: AppColors.primaryCyan),
-                const SizedBox(width: 6),
-                Text(
-                  booking['date'] as String,
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryNavy,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = _fullDetails ?? widget.bookingSummary;
+    final bookingId = b['id']?.toString() ?? '';
+    final categoryName = b['category']?['name']?.toString() ?? 'Career';
+    final counsellorName = b['counsellor']?['displayName']?.toString() ?? 'N/A';
+    final customerName = b['customer']?['displayName']?.toString() ?? 'N/A';
+    final mode = (b['consultationMode']?.toString() ?? 'AUDIO').toUpperCase();
+    final modeText = mode == 'VIDEO' ? 'Video' : 'Audio';
+
+    final startStr = widget.formatDateTime(b['scheduledStartAt']?.toString());
+    final endStr = widget.formatDateTime(b['scheduledEndAt']?.toString());
+    final scheduledWindow = '$startStr → $endStr';
+
+    final priceStr = widget.formatPrice(b['priceAmount'], b['currency']?.toString());
+    final status = b['status']?.toString();
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.event_note_outlined, color: AppColors.primaryNavy, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Booking #$bookingId',
                   style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  booking['fee'] as String,
-                  style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primaryNavy,
                   ),
                 ),
-              ],
-            ),
-            if (isUpcoming) ...[
-              const SizedBox(height: 14),
-              Row(
+              ),
+              const SizedBox(width: 8),
+              widget.buildStatusBadge(status),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_loadingDetails)
+            const Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primaryCyan),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {},
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textSecondary,
-                        side: const BorderSide(color: AppColors.borderGrey),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('Reschedule'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (booking['type'] == 'Video Call') {
-                          context.push('/video-call', extra: {
-                            'channelId': booking['id'],
-                            'clientName': booking['clientName'],
-                          });
-                        } else if (booking['type'] == 'Audio Call') {
-                          context.push('/audio-call', extra: {
-                            'channelId': booking['id'],
-                            'clientName': booking['clientName'],
-                          });
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryCyan,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('Start Session'),
-                    ),
-                  ),
+                  _buildDetailRow('Category', categoryName),
+                  const Divider(height: 1),
+                  _buildDetailRow('Counsellor', counsellorName),
+                  const Divider(height: 1),
+                  _buildDetailRow('Customer', customerName),
+                  const Divider(height: 1),
+                  _buildDetailRow('Mode', modeText),
+                  const Divider(height: 1),
+                  _buildDetailRow('Scheduled', scheduledWindow),
+                  const Divider(height: 1),
+                  _buildDetailRow('Price', priceStr),
                 ],
               ),
-            ],
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

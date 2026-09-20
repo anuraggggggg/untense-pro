@@ -510,7 +510,7 @@ class AuthApiService {
     final queryParams = <String>[
       'page=$page',
       'limit=$limit',
-      if (status != null && status.isNotEmpty) 'status=$status',
+      if (status != null && status.isNotEmpty && status != 'ALL') 'status=$status',
       if (consultationMode != null && consultationMode.isNotEmpty) 'consultationMode=$consultationMode',
     ];
     final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.bookingsEndpoint}?${queryParams.join('&')}');
@@ -523,15 +523,48 @@ class AuthApiService {
         },
       );
       final responseData = jsonDecode(response.body);
-      if (response.statusCode == 200 && responseData['success'] == true && responseData['data'] is List) {
-        return List<Map<String, dynamic>>.from(
-          (responseData['data'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
-        );
+      if ((response.statusCode == 200 || response.statusCode == 304) && responseData['success'] == true) {
+        final data = responseData['data'];
+        if (data is Map && data['items'] is List) {
+          return List<Map<String, dynamic>>.from(
+            (data['items'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+        } else if (data is List) {
+          return List<Map<String, dynamic>>.from(
+            data.map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+        }
       }
       return [];
     } catch (e) {
       debugPrint('🐛 [API Exception] getCounsellorBookings: $e');
       return [];
+    }
+  }
+
+  /// Get Single Booking Details
+  /// Endpoint: GET /api/v1/bookings/:bookingId
+  Future<Map<String, dynamic>> getBookingDetails({
+    required String token,
+    required String bookingId,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.bookingsEndpoint}/$bookingId');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 304) && responseData['success'] == true) {
+        return responseData['data'] is Map ? Map<String, dynamic>.from(responseData['data']) : {};
+      }
+      return {};
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getBookingDetails: $e');
+      return {};
     }
   }
 
