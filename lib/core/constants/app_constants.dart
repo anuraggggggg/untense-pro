@@ -7,6 +7,7 @@ class AppConstants {
   static const String otpVerifyEndpoint = '/auth/otp/verify';
   static const String loginEndpoint = '/auth/login';
   static const String counsellorMeEndpoint = '/counsellors/me';
+  static const String categoriesEndpoint = '/categories';
 
   // Agora App ID - Replace with your actual Agora App ID from Agora Console
   static const String agoraAppId = 'YOUR_AGORA_APP_ID';

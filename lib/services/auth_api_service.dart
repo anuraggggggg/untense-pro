@@ -293,4 +293,31 @@ class AuthApiService {
       throw Exception('Network error while fetching profile: $e');
     }
   }
+
+  /// Get All Categories & Specialisations
+  /// Endpoint: GET /api/v1/categories
+  Future<List<Map<String, dynamic>>> getCategories() async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.categoriesEndpoint}');
+    debugPrint('🐛 [Auth] GET CATEGORIES URL: $url');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      debugPrint('🐛 [Auth] CATEGORIES STATUS: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 304) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        if (responseData['success'] == true && responseData['data'] is List) {
+          final List list = responseData['data'];
+          return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('🐛 [Auth Exception] getCategories: $e');
+      return [];
+    }
+  }
 }

@@ -32,6 +32,18 @@ class AuthProvider extends ChangeNotifier {
     _initSession();
   }
 
+  Future<void> refreshProfile() async {
+    if (_token != null && _token!.isNotEmpty) {
+      try {
+        final profileData = await _apiService.getCounsellorProfile(token: _token!);
+        _counsellor = CounsellorModel.fromApiJson(profileData, _counsellor?.email);
+        notifyListeners();
+      } catch (e) {
+        debugPrint('🐛 [Auth Error] refreshProfile failed: $e');
+      }
+    }
+  }
+
   Future<void> _initSession() async {
     _isLoading = true;
     notifyListeners();
