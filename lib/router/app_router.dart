@@ -6,10 +6,13 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/counsellor_register_screen.dart';
 import '../screens/auth/registration_verification_screen.dart';
 import '../screens/auth/pending_verification_screen.dart';
+import '../screens/main_layout_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/consultation/audio_call_screen.dart';
 import '../screens/consultation/video_call_screen.dart';
 import '../screens/wallet/wallet_screen.dart';
+import '../screens/bookings/bookings_screen.dart';
+import '../screens/profile/profile_screen.dart';
 
 class AppRouter {
   static GoRouter createRouter(AuthProvider authProvider) {
@@ -75,10 +78,33 @@ class AppRouter {
           path: '/pending-verification',
           builder: (context, state) => const PendingVerificationScreen(),
         ),
-        GoRoute(
-          path: '/dashboard',
-          builder: (context, state) => const DashboardScreen(),
+
+        // Main authenticated app shell with Bottom Navigation Bar
+        ShellRoute(
+          builder: (context, state, child) {
+            return MainLayoutScreen(child: child);
+          },
+          routes: [
+            GoRoute(
+              path: '/dashboard',
+              builder: (context, state) => const DashboardScreen(),
+            ),
+            GoRoute(
+              path: '/wallet',
+              builder: (context, state) => const WalletScreen(),
+            ),
+            GoRoute(
+              path: '/bookings',
+              builder: (context, state) => const BookingsScreen(),
+            ),
+            GoRoute(
+              path: '/profile',
+              builder: (context, state) => const ProfileScreen(),
+            ),
+          ],
         ),
+
+        // Fullscreen Call Overlay Routes
         GoRoute(
           path: '/audio-call',
           builder: (context, state) {
@@ -100,10 +126,6 @@ class AppRouter {
               agoraToken: extra['agoraToken'],
             );
           },
-        ),
-        GoRoute(
-          path: '/wallet',
-          builder: (context, state) => const WalletScreen(),
         ),
       ],
     );

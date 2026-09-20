@@ -122,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             icon: const Icon(Icons.account_balance_wallet_outlined,
                 color: AppColors.primaryNavy),
             tooltip: 'Wallet & Earnings',
-            onPressed: () => context.push('/wallet'),
+            onPressed: () => context.go('/wallet'),
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.primaryNavy),
