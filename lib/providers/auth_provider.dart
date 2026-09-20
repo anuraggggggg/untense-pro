@@ -163,8 +163,10 @@ class AuthProvider extends ChangeNotifier {
       final res =
           await _apiService.loginCounsellor(email: email, password: password);
       
-      final jwtToken = res['token'] as String;
-      final userData = res['user'] as Map<String, dynamic>?;
+      final jwtToken = res['token'].toString();
+      final userData = res['user'] is Map<String, dynamic>
+          ? res['user'] as Map<String, dynamic>
+          : (res['user'] is Map ? Map<String, dynamic>.from(res['user'] as Map) : null);
 
       // 2. Persist Token locally
       final prefs = await SharedPreferences.getInstance();

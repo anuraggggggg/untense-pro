@@ -84,29 +84,36 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dr. ${counsellor?.fullName ?? "Counsellor"}',
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryNavy),
-                ),
-                Text(
-                  isOnline
-                      ? 'Online • Ready for Sessions'
-                      : 'Offline • Unavailable',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isOnline
-                        ? AppColors.onlineGreen
-                        : AppColors.offlineGrey,
-                    fontWeight: FontWeight.w500,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Dr. ${counsellor?.fullName ?? "Counsellor"}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryNavy),
                   ),
-                ),
-              ],
+                  Text(
+                    isOnline
+                        ? 'Online • Ready for Sessions'
+                        : 'Offline • Unavailable',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isOnline
+                          ? AppColors.onlineGreen
+                          : AppColors.offlineGrey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

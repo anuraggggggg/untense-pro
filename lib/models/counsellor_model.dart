@@ -59,12 +59,46 @@ class CounsellorModel {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  factory CounsellorModel.fromApiJson(Map<String, dynamic> json, [String? fallbackEmail]) {
-    final rawKycStatus = json['kycStatus']?.toString().toUpperCase() ??
-        json['verificationStatus']?.toString().toUpperCase() ??
-        'APPROVED';
+  static double _parseNumToDouble(dynamic val, [double defaultVal = 0.0]) {
+    if (val == null) return defaultVal;
+    if (val is num) return val.toDouble();
+    if (val is String) return double.tryParse(val) ?? defaultVal;
+    return defaultVal;
+  }
 
-    final bool verified = json['isVerified'] == true || rawKycStatus == 'APPROVED';
+  static int _parseNumToInt(dynamic val, [int defaultVal = 0]) {
+    if (val == null) return defaultVal;
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    if (val is String) return int.tryParse(val) ?? defaultVal;
+    return defaultVal;
+  }
+
+  static bool _parseToBool(dynamic val, [bool defaultVal = false]) {
+    if (val == null) return defaultVal;
+    if (val is bool) return val;
+    if (val is num) return val != 0;
+    if (val is String) {
+      final s = val.trim().toLowerCase();
+      return s == 'true' || s == '1' || s == 'yes';
+    }
+    return defaultVal;
+  }
+
+  factory CounsellorModel.fromApiJson(Map<String, dynamic> json, [String? fallbackEmail]) {
+    Map<String, dynamic>? userMap;
+    if (json['user'] is Map) {
+      userMap = Map<String, dynamic>.from(json['user'] as Map);
+    }
+
+    final rawKycStatus = (json['kycStatus'] ??
+            json['verificationStatus'] ??
+            json['kyc_status'] ??
+            'APPROVED')
+        .toString()
+        .toUpperCase();
+
+    final bool verified = _parseToBool(json['isVerified'] ?? json['is_verified'], rawKycStatus == 'APPROVED');
 
     VerificationStatus status = VerificationStatus.pending;
     if (rawKycStatus == 'APPROVED' || verified) {
@@ -74,11 +108,14 @@ class CounsellorModel {
     }
 
     int? parsedUserId;
-    if (json['userId'] != null) {
-      if (json['userId'] is int) {
-        parsedUserId = json['userId'];
+    final rawUserId = json['userId'] ?? json['user_id'] ?? userMap?['id'];
+    if (rawUserId != null) {
+      if (rawUserId is int) {
+        parsedUserId = rawUserId;
+      } else if (rawUserId is num) {
+        parsedUserId = rawUserId.toInt();
       } else {
-        parsedUserId = int.tryParse(json['userId'].toString());
+        parsedUserId = int.tryParse(rawUserId.toString());
       }
     }
 
@@ -88,43 +125,88 @@ class CounsellorModel {
       for (var d in docs) {
         if (d is Map) {
           final type = d['type'] ?? d['docType'] ?? 'doc';
-          final url = d['url'] ?? d['fileUrl'] ?? '';
-          if (url.isNotEmpty) docMap[type.toString()] = url.toString();
+          final url = d['url'] ?? d['fileUrl'] ?? d['path'] ?? '';
+          if (url != null && url.toString().isNotEmpty) {
+            docMap[type.toString()] = url.toString();
+          }
         }
       }
     } else if (json['documents'] is Map) {
-      docMap = Map<String, String>.from(json['documents']);
+      final docs = json['documents'] as Map;
+      docs.forEach((key, val) {
+        if (val != null) {
+          if (val is Map) {
+            final url = val['url'] ?? val['fileUrl'] ?? val['path'] ?? val.toString();
+            docMap[key.toString()] = url.toString();
+          } else {
+            docMap[key.toString()] = val.toString();
+          }
+        }
+      });
     }
 
+    final rawSpecs = json['specialisations'] ?? json['specializations'] ?? [];
+    List<String> specsList = [];
+    if (rawSpecs is List) {
+      for (var item in rawSpecs) {
+        if (item == null) continue;
+        if (item is String) {
+          specsList.add(item);
+        } else if (item is Map) {
+          final name = item['name'] ?? item['title'] ?? item['specialisation'] ?? item['specialization'] ?? item.toString();
+          specsList.add(name.toString());
+        } else {
+          specsList.add(item.toString());
+        }
+      }
+    }
+
+    final rawAvatar = json['avatarUrl'] ?? json['avatar'] ?? userMap?['avatarUrl'] ?? userMap?['avatar'];
+    final avatarUrlStr = (rawAvatar != null && rawAvatar is! Map) ? rawAvatar.toString() : null;
+
+    final rawRejection = json['rejectionReason'] ?? json['rejection_reason'];
+    final rejectionReasonStr = (rawRejection != null && rawRejection is! Map) ? rawRejection.toString() : null;
+
+    final uidStr = (json['id'] ?? json['_id'] ?? parsedUserId ?? 'api_counsellor').toString();
+
+    final availabilitiesList = json['availabilities'] is List
+        ? List<dynamic>.from(json['availabilities'])
+        : <dynamic>[];
+
     return CounsellorModel(
-      uid: json['id']?.toString() ??
-          parsedUserId?.toString() ??
-          'api_counsellor',
+      uid: uidStr,
       userId: parsedUserId,
-      fullName: json['displayName'] ?? json['fullName'] ?? json['name'] ?? 'Counsellor',
-      email: json['email'] ?? fallbackEmail ?? '',
-      phone: json['phone'] ?? '',
-      yearsExperience: json['experienceYears'] ?? json['yearsExperience'] ?? 0,
-      bio: json['bio'] ?? '',
-      qualification: json['qualification'] ?? '',
-      hourlyRateAmount: (json['hourlyRateAmount'] ?? 0.0).toDouble(),
-      currency: json['currency'] ?? 'INR',
+      fullName: (json['displayName'] ??
+              json['fullName'] ??
+              json['name'] ??
+              userMap?['displayName'] ??
+              userMap?['fullName'] ??
+              userMap?['name'] ??
+              'Counsellor')
+          .toString(),
+      email: (json['email'] ?? userMap?['email'] ?? fallbackEmail ?? '').toString(),
+      phone: (json['phone'] ?? userMap?['phone'] ?? '').toString(),
+      yearsExperience: _parseNumToInt(json['experienceYears'] ?? json['yearsExperience']),
+      bio: (json['bio'] ?? '').toString(),
+      qualification: (json['qualification'] ?? '').toString(),
+      hourlyRateAmount: _parseNumToDouble(json['hourlyRateAmount'] ?? json['hourly_rate']),
+      currency: (json['currency'] ?? 'INR').toString(),
       kycStatus: rawKycStatus,
       isVerified: verified,
-      specializations: List<String>.from(json['specialisations'] ?? json['specializations'] ?? []),
-      upiId: json['upiId'] ?? '',
+      specializations: specsList,
+      upiId: (json['upiId'] ?? json['upi_id'] ?? '').toString(),
       documents: docMap,
       verificationStatus: status,
-      isOnline: json['isOnline'] ?? true,
-      totalBalance: (json['totalBalance'] ?? 0.0).toDouble(),
-      lifetimeEarnings: (json['lifetimeEarnings'] ?? 0.0).toDouble(),
-      pendingPayouts: (json['pendingPayouts'] ?? 0.0).toDouble(),
-      rating: (json['ratingAverage'] ?? json['rating'] ?? 5.0).toDouble(),
-      ratingCount: json['ratingCount'] ?? 0,
-      timezone: json['timezone'] ?? 'Asia/Kolkata',
-      availabilities: List<dynamic>.from(json['availabilities'] ?? []),
-      avatarUrl: json['avatarUrl'],
-      rejectionReason: json['rejectionReason'],
+      isOnline: _parseToBool(json['isOnline'], true),
+      totalBalance: _parseNumToDouble(json['totalBalance'] ?? json['total_balance']),
+      lifetimeEarnings: _parseNumToDouble(json['lifetimeEarnings'] ?? json['lifetime_earnings']),
+      pendingPayouts: _parseNumToDouble(json['pendingPayouts'] ?? json['pending_payouts']),
+      rating: _parseNumToDouble(json['ratingAverage'] ?? json['rating'], 5.0),
+      ratingCount: _parseNumToInt(json['ratingCount'] ?? json['rating_count']),
+      timezone: (json['timezone'] ?? 'Asia/Kolkata').toString(),
+      availabilities: availabilitiesList,
+      avatarUrl: avatarUrlStr,
+      rejectionReason: rejectionReasonStr,
     );
   }
 
