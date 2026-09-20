@@ -42,13 +42,13 @@ class _AppShimmerState extends State<AppShimmer>
       animation: _controller,
       builder: (context, child) {
         return ShaderMask(
-          blendMode: BlendMode.srcATop,
+          blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) {
             return LinearGradient(
               colors: const [
-                Color(0xFFE0E6ED),
+                Color(0xFFCBD5E1),
                 Color(0xFFF1F5F9),
-                Color(0xFFE0E6ED),
+                Color(0xFFCBD5E1),
               ],
               stops: const [0.1, 0.5, 0.9],
               begin: Alignment(-1.0 + (_controller.value * 3.0), -0.3),
@@ -85,7 +85,7 @@ class ShimmerBox extends StatelessWidget {
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
+        color: const Color(0xFFCBD5E1),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
@@ -106,7 +106,7 @@ class ShimmerCircle extends StatelessWidget {
       width: radius * 2,
       height: radius * 2,
       decoration: const BoxDecoration(
-        color: Color(0xFFE2E8F0),
+        color: Color(0xFFCBD5E1),
         shape: BoxShape.circle,
       ),
     );

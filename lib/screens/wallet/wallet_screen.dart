@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
-import '../../models/transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
+import '../../widgets/app_shimmer.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -14,347 +15,210 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
+  final TextEditingController _couponController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = context.read<AuthProvider>().firebaseUser;
-      if (user != null) {
-        context.read<WalletProvider>().listenToTransactions(user.uid);
-      }
-    });
+    _fetchWalletData();
   }
 
-  void _showWithdrawModal(
-      BuildContext context, double currentBalance, String defaultUpi) {
-    final amountController = TextEditingController();
-    final upiController = TextEditingController(text: defaultUpi);
-    final formKey = GlobalKey<FormState>();
+  @override
+  void dispose() {
+    _couponController.dispose();
+    super.dispose();
+  }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            top: 24,
-            left: 24,
-            right: 24,
-          ),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Withdraw to UPI',
-                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryNavy,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Available Balance: ₹${currentBalance.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 14),
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: amountController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Withdrawal Amount (₹)',
-                    prefixIcon: Icon(Icons.currency_rupee),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return 'Enter amount';
-                    }
-                    final amt = double.tryParse(val);
-                    if (amt == null || amt <= 0) {
-                      return 'Enter valid amount';
-                    }
-                    if (amt > currentBalance) {
-                      return 'Exceeds available balance';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: upiController,
-                  decoration: const InputDecoration(
-                    labelText: 'UPI ID',
-                    prefixIcon: Icon(Icons.account_balance_wallet_outlined),
-                  ),
-                  validator: (val) => val == null || !val.contains('@')
-                      ? 'Enter valid UPI ID'
-                      : null,
-                ),
-                const SizedBox(height: 24),
-                Consumer<WalletProvider>(
-                  builder: (context, walletProvider, _) {
-                    return ElevatedButton(
-                      onPressed: walletProvider.isRequestingPayout
-                          ? null
-                          : () async {
-                              if (!formKey.currentState!.validate()) return;
-                              final user =
-                                  context.read<AuthProvider>().firebaseUser;
-                              if (user == null) return;
+  Future<void> _fetchWalletData() async {
+    final authProvider = context.read<AuthProvider>();
+    final walletProvider = context.read<WalletProvider>();
+    
+    String? token = authProvider.token;
+    if (token == null || token.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      token = prefs.getString('jwt_auth_token');
+    }
 
-                              final amt =
-                                  double.parse(amountController.text.trim());
-                              final upi = upiController.text.trim();
+    if (token != null && token.isNotEmpty) {
+      await walletProvider.fetchWalletAndTransactions(token);
+    } else {
+      await walletProvider.fetchWalletAndTransactions('');
+    }
+  }
 
-                              final success =
-                                  await walletProvider.withdrawToUpi(
-                                counsellorId: user.uid,
-                                amount: amt,
-                                upiId: upi,
-                              );
+  Future<void> _handleApplyCoupon() async {
+    final code = _couponController.text.trim();
+    if (code.isEmpty) return;
 
-                              if (ctx.mounted) {
-                                Navigator.pop(ctx);
-                                if (success) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Payout request submitted successfully!'),
-                                      backgroundColor: AppColors.onlineGreen,
-                                    ),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        walletProvider.errorMessage ??
-                                            'Withdrawal failed',
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                      child: walletProvider.isRequestingPayout
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text('Confirm Withdrawal'),
-                    );
-                  },
-                ),
-              ],
-            ),
+    final authProvider = context.read<AuthProvider>();
+    final walletProvider = context.read<WalletProvider>();
+    final token = authProvider.token;
+
+    if (token != null && token.isNotEmpty) {
+      final success = await walletProvider.applyCoupon(token: token, code: code);
+      if (!mounted) return;
+      if (success) {
+        _couponController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Coupon applied successfully!'),
+            backgroundColor: AppColors.onlineGreen,
           ),
         );
-      },
-    );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(walletProvider.errorMessage ?? 'Failed to apply coupon'),
+            backgroundColor: AppColors.rejectedRed,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final counsellor = authProvider.counsellor;
     final walletProvider = context.watch<WalletProvider>();
-
-    final totalBalance = counsellor?.totalBalance ?? 0.0;
-    final lifetimeEarnings = counsellor?.lifetimeEarnings ?? 0.0;
-    final pendingPayouts = counsellor?.pendingPayouts ?? 0.0;
-    final defaultUpi = counsellor?.upiId ?? '';
-
-    final transactions = walletProvider.transactions;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Earnings & Wallet'),
+        title: const Text('Wallet & Earnings'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryNavy),
+            tooltip: 'Reload Wallet',
+            onPressed: _fetchWalletData,
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Available Balance Hero Card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primaryTeal, AppColors.primaryTealLight],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryTeal.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Available Balance',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '₹${totalBalance.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: totalBalance > 0
-                          ? () => _showWithdrawModal(
-                              context, totalBalance, defaultUpi)
-                          : null,
-                      icon: const Icon(Icons.send_rounded),
-                      label: const Text('Withdraw to UPI'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primaryNavy,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+      body: RefreshIndicator(
+        onRefresh: _fetchWalletData,
+        color: AppColors.primaryCyan,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: walletProvider.isLoading
+              ? _buildShimmerWalletLoading()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top Balance Card (Web UI Matched)
+                    _buildBalanceCard(walletProvider),
+                    const SizedBox(height: 14),
+
+                    // Information Banner (Web UI Matched)
+                    _buildInformationBanner(),
+                    const SizedBox(height: 20),
+
+                    // Apply Coupon Card (Web UI Matched)
+                    _buildCouponCard(walletProvider),
+                    const SizedBox(height: 24),
+
+                    // Recent Transactions Title
+                    const Text(
+                      'Recent transactions',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryNavy,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
-            // Metrics Cards Grid
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricTile(
-                    label: 'Lifetime Earnings',
-                    amount: lifetimeEarnings,
-                    color: AppColors.onlineGreen,
-                    icon: Icons.trending_up,
-                  ),
+                    // Transactions List
+                    _buildTransactionsList(walletProvider),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildMetricTile(
-                    label: 'Pending Payouts',
-                    amount: pendingPayouts,
-                    color: AppColors.pendingYellow,
-                    icon: Icons.hourglass_empty,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-
-            // Transaction History Header
-            Text(
-              'Transaction History',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 12),
-
-            if (walletProvider.isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child:
-                      CircularProgressIndicator(color: AppColors.primaryTeal),
-                ),
-              )
-            else if (transactions.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    children: [
-                      Icon(Icons.history, size: 48, color: Colors.grey[400]),
-                      const SizedBox(height: 8),
-                      Text(
-                        'No transactions recorded yet',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: transactions.length,
-                itemBuilder: (context, index) {
-                  final tx = transactions[index];
-                  return _buildTransactionTile(tx);
-                },
-              ),
-          ],
         ),
       ),
     );
   }
 
-  Widget _buildMetricTile({
-    required String label,
-    required double amount,
-    required Color color,
-    required IconData icon,
-  }) {
+  /// Top Balance Card matching Web UI
+  Widget _buildBalanceCard(WalletProvider walletProvider) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
         border: Border.all(color: AppColors.borderGrey),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryCyan.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_outlined,
+              color: AppColors.primaryCyan,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              Text(
+                'Wallet balance',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${walletProvider.balanceCredits} credits',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryNavy,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            '₹${amount.toStringAsFixed(0)}',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
+        ],
+      ),
+    );
+  }
+
+  /// Information Banner matching Web UI
+  Widget _buildInformationBanner() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.primaryCyan,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Sessions you complete credit this wallet automatically, net of the platform\'s commission — see "Session earning" entries below. There\'s nothing to top up or send here; a customer paying for a booking (or an admin adjustment) is the only thing that adds credits to this wallet.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: Colors.blue[900],
+              ),
             ),
           ),
         ],
@@ -362,68 +226,375 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _buildTransactionTile(TransactionModel tx) {
-    final isPayout = tx.type == TransactionType.payout;
-    final color = isPayout ? Colors.orange[800] : AppColors.onlineGreen;
-    final icon = isPayout ? Icons.south_west : Icons.north_east;
-    final formattedDate =
-        DateFormat('MMM dd, yyyy • hh:mm a').format(tx.timestamp);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color?.withValues(alpha: 0.12),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        title: Text(
-          tx.description.isNotEmpty
-              ? tx.description
-              : (isPayout ? 'UPI Payout Withdrawal' : 'Session Fee Earning'),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        subtitle: Text(
-          formattedDate,
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${isPayout ? "-" : "+"}₹${tx.amount.toStringAsFixed(0)}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: isPayout ? Colors.red : AppColors.onlineGreen,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: tx.status == TransactionStatus.completed
-                    ? Colors.green[50]
-                    : tx.status == TransactionStatus.pending
-                        ? Colors.amber[50]
-                        : Colors.red[50],
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                tx.status.name.toUpperCase(),
+  /// Apply Coupon Card matching Web UI
+  Widget _buildCouponCard(WalletProvider walletProvider) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: AppColors.borderGrey),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.confirmation_number_outlined,
+                  color: AppColors.primaryNavy, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Apply a coupon',
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: tx.status == TransactionStatus.completed
-                      ? Colors.green[800]
-                      : tx.status == TransactionStatus.pending
-                          ? Colors.amber[900]
-                          : Colors.red[800],
+                  color: AppColors.primaryNavy,
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Coupon code',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 46,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _couponController,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      hintText: 'Enter coupon code',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.borderGrey),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.primaryCyan),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: walletProvider.isApplyingCoupon ? null : _handleApplyCoupon,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryNavy,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(80, 46),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: walletProvider.isApplyingCoupon
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Apply'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Recent Transactions list matching Web UI cards & badges
+  Widget _buildTransactionsList(WalletProvider walletProvider) {
+    final transactions = walletProvider.transactions;
+
+    if (transactions.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.borderGrey),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.history_toggle_off_rounded,
+                size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text(
+              'No wallet transactions found',
+              style: TextStyle(color: Colors.grey[600], fontSize: 15),
             ),
           ],
         ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: transactions.length,
+      itemBuilder: (context, index) {
+        final tx = transactions[index];
+        return _buildTransactionCard(tx);
+      },
+    );
+  }
+
+  Widget _buildTransactionCard(Map<String, dynamic> tx) {
+    final String typeRaw = tx['type']?.toString() ?? 'TRANSACTION';
+    final String typeLabel = typeRaw.replaceAll('_', ' ').toLowerCase().split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
+
+    final String status = tx['status']?.toString().toUpperCase() ?? 'SUCCESS';
+    final num credits = tx['creditsAmount'] ?? 0;
+    final String description = tx['description']?.toString() ?? '';
+    final String rawCreatedAt = tx['createdAt']?.toString() ?? '';
+
+    String formattedDate = '';
+    if (rawCreatedAt.isNotEmpty) {
+      try {
+        final dateTime = DateTime.parse(rawCreatedAt).toLocal();
+        formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(dateTime);
+      } catch (_) {
+        formattedDate = rawCreatedAt;
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: AppColors.borderGrey),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Type Badge (Session Earning green pill)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.mintBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.accentMint),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle_outline_rounded,
+                        size: 13, color: AppColors.onlineGreen),
+                    const SizedBox(width: 4),
+                    Text(
+                      typeLabel,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryNavy,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Status Badge (Success green pill)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.mintBg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle_outline_rounded,
+                        size: 13, color: AppColors.onlineGreen),
+                    const SizedBox(width: 4),
+                    Text(
+                      status.toLowerCase().split(' ').map((w) => w.isNotEmpty ? w[0].toUpperCase() + w.substring(1) : '').join(' '),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.onlineGreen,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+
+              // Amount Credits
+              Text(
+                '$credits credits',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryNavy,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Formatted Date
+          if (formattedDate.isNotEmpty)
+            Text(
+              formattedDate,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+
+          // Description
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Shimmer loading layout matching Wallet Web UI
+  Widget _buildShimmerWalletLoading() {
+    return AppShimmer(
+      isLoading: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Balance Card Shimmer
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.borderGrey),
+            ),
+            child: Row(
+              children: const [
+                ShimmerCircle(radius: 26),
+                SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerBox(width: 100, height: 14),
+                    SizedBox(height: 8),
+                    ShimmerBox(width: 140, height: 24),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Information Banner Shimmer
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ShimmerBox(width: 300, height: 50),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Coupon Card Shimmer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.borderGrey),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                ShimmerBox(width: 140, height: 18),
+                SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: ShimmerBox(width: 300, height: 42, borderRadius: 10),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Transactions Shimmer
+          const ShimmerBox(width: 180, height: 20),
+          const SizedBox(height: 12),
+
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.borderGrey),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ShimmerBox(width: 140, height: 22, borderRadius: 16),
+                    ShimmerBox(width: 80, height: 20),
+                  ],
+                ),
+                SizedBox(height: 10),
+                ShimmerBox(width: 160, height: 12),
+                SizedBox(height: 6),
+                ShimmerBox(width: 240, height: 12),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

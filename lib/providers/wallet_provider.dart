@@ -1,100 +1,77 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/transaction_model.dart';
+import '../services/auth_api_service.dart';
 
 class WalletProvider extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthApiService _apiService = AuthApiService();
 
-  List<TransactionModel> _transactions = [];
-  bool _isLoading = false;
-  bool _isRequestingPayout = false;
+  int _balanceCredits = 0;
+  String _currency = 'INR';
+  List<Map<String, dynamic>> _transactions = [];
+  int _totalTransactions = 0;
+  bool _isLoading = true;
+  bool _isApplyingCoupon = false;
   String? _errorMessage;
-  StreamSubscription? _txSubscription;
 
-  List<TransactionModel> get transactions => _transactions;
+  int get balanceCredits => _balanceCredits;
+  String get currency => _currency;
+  List<Map<String, dynamic>> get transactions => _transactions;
+  int get totalTransactions => _totalTransactions;
   bool get isLoading => _isLoading;
-  bool get isRequestingPayout => _isRequestingPayout;
+  bool get isApplyingCoupon => _isApplyingCoupon;
   String? get errorMessage => _errorMessage;
 
-  void listenToTransactions(String counsellorId) {
-    _txSubscription?.cancel();
+  Future<void> fetchWalletAndTransactions(String token) async {
     _isLoading = true;
-    notifyListeners();
-
-    _txSubscription = _firestore
-        .collection('counsellors')
-        .doc(counsellorId)
-        .collection('transactions')
-        .snapshots()
-        .listen((snapshot) {
-      _transactions = snapshot.docs
-          .map((doc) => TransactionModel.fromMap(doc.data(), doc.id))
-          .toList();
-      _transactions.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      _isLoading = false;
-      notifyListeners();
-    }, onError: (_) {
-      _isLoading = false;
-      notifyListeners();
-    });
-  }
-
-  Future<bool> withdrawToUpi({
-    required String counsellorId,
-    required double amount,
-    required String upiId,
-  }) async {
-    _isRequestingPayout = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final docRef = _firestore.collection('counsellors').doc(counsellorId);
-
-      await _firestore.runTransaction((transaction) async {
-        final snapshot = await transaction.get(docRef);
-        final currentBalance =
-            (snapshot.data()?['totalBalance'] ?? 0.0).toDouble();
-
-        if (currentBalance < amount) {
-          throw Exception('Insufficient balance. Available: ₹$currentBalance');
+      final walletData = await _apiService.getWallet(token: token);
+      if (walletData.isNotEmpty) {
+        final rawBal = walletData['balanceCredits'];
+        if (rawBal is int) {
+          _balanceCredits = rawBal;
+        } else if (rawBal is num) {
+          _balanceCredits = rawBal.toInt();
+        } else {
+          _balanceCredits = int.tryParse(rawBal?.toString() ?? '0') ?? 0;
         }
+        _currency = walletData['currency']?.toString() ?? 'INR';
+      }
 
-        final newBalance = currentBalance - amount;
-        final currentPending =
-            (snapshot.data()?['pendingPayouts'] ?? 0.0).toDouble();
+      final txData = await _apiService.getWalletTransactions(token: token, page: 1, limit: 20);
+      if (txData.isNotEmpty && txData['items'] is List) {
+        final List items = txData['items'];
+        _transactions = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _totalTransactions = txData['total'] is int ? txData['total'] : _transactions.length;
+      }
 
-        transaction.update(docRef, {
-          'totalBalance': newBalance,
-          'pendingPayouts': currentPending + amount,
-        });
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
-        final txRef = docRef.collection('transactions').doc();
-        transaction.set(txRef, {
-          'amount': amount,
-          'type': TransactionType.payout.name,
-          'status': TransactionStatus.pending.name,
-          'upiId': upiId,
-          'description': 'Withdrawal to UPI: $upiId',
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-      });
+  Future<bool> applyCoupon({required String token, required String code}) async {
+    _isApplyingCoupon = true;
+    _errorMessage = null;
+    notifyListeners();
 
-      _isRequestingPayout = false;
+    try {
+      await _apiService.applyCoupon(token: token, code: code);
+      await fetchWalletAndTransactions(token);
+      _isApplyingCoupon = false;
       notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
-      _isRequestingPayout = false;
+      _isApplyingCoupon = false;
       notifyListeners();
       return false;
     }
-  }
-
-  @override
-  void dispose() {
-    _txSubscription?.cancel();
-    super.dispose();
   }
 }

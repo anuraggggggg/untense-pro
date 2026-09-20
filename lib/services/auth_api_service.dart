@@ -561,4 +561,82 @@ class AuthApiService {
       return [];
     }
   }
+
+  /// Get Wallet Details
+  /// Endpoint: GET /api/v1/wallet/me
+  Future<Map<String, dynamic>> getWallet({required String token}) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.walletMeEndpoint}');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 304) && responseData['success'] == true) {
+        return responseData['data'] is Map ? Map<String, dynamic>.from(responseData['data']) : {};
+      }
+      return {};
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getWallet: $e');
+      return {};
+    }
+  }
+
+  /// Get Wallet Transactions
+  /// Endpoint: GET /api/v1/wallet/me/transactions
+  Future<Map<String, dynamic>> getWalletTransactions({
+    required String token,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.walletTransactionsEndpoint}?page=$page&limit=$limit');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 304) && responseData['success'] == true) {
+        return responseData['data'] is Map ? Map<String, dynamic>.from(responseData['data']) : {};
+      }
+      return {};
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getWalletTransactions: $e');
+      return {};
+    }
+  }
+
+  /// Apply Coupon
+  /// Endpoint: POST /api/v1/coupons/apply
+  Future<Map<String, dynamic>> applyCoupon({
+    required String token,
+    required String code,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}/coupons/apply');
+    try {
+      final response = await _client.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'code': code.trim()}),
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && responseData['success'] == true) {
+        return responseData;
+      } else {
+        throw Exception(responseData['message'] ?? 'Failed to apply coupon');
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] applyCoupon: $e');
+      rethrow;
+    }
+  }
 }
