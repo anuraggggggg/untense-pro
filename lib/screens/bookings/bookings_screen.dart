@@ -108,45 +108,53 @@ class _BookingsScreenState extends State<BookingsScreen> {
     final s = (status ?? 'PENDING').toUpperCase();
 
     Color bgColor = const Color(0xFFEFF8FF);
-    Color textColor = const Color(0xFF175CD3);
+    Color textColor = AppColors.primaryCyan;
+    Color borderColor = AppColors.primaryCyan.withValues(alpha: 0.2);
     IconData icon = Icons.info_outline;
     String label = _statusOptions[s] ?? s;
 
     if (s == 'COMPLETED') {
-      bgColor = const Color(0xFFD1FADF);
-      textColor = const Color(0xFF027A48);
+      bgColor = AppColors.mintBg;
+      textColor = AppColors.onlineGreen;
+      borderColor = AppColors.accentMint.withValues(alpha: 0.5);
       icon = Icons.check_circle_outline;
       label = 'Completed';
     } else if (s == 'CONFIRMED') {
       bgColor = const Color(0xFFEFF8FF);
-      textColor = const Color(0xFF175CD3);
+      textColor = AppColors.primaryCyan;
+      borderColor = AppColors.primaryCyan.withValues(alpha: 0.3);
       icon = Icons.check_circle_outline;
       label = 'Confirmed';
     } else if (s == 'IN_PROGRESS') {
-      bgColor = const Color(0xFFFFE4E2);
-      textColor = const Color(0xFFB42318);
+      bgColor = const Color(0xFFFEF2F2);
+      textColor = AppColors.rejectedRed;
+      borderColor = AppColors.rejectedRed.withValues(alpha: 0.3);
       icon = Icons.play_circle_outline;
       label = 'In Progress';
     } else if (s == 'PENDING_PAYMENT') {
-      bgColor = const Color(0xFFFEF0C7);
-      textColor = const Color(0xFFB54708);
+      bgColor = const Color(0xFFFFFBEB);
+      textColor = AppColors.pendingYellow;
+      borderColor = AppColors.pendingYellow.withValues(alpha: 0.3);
       icon = Icons.access_time;
       label = 'Pending Payment';
     } else if (s.startsWith('CANCELLED')) {
-      bgColor = const Color(0xFFFEF3F2);
-      textColor = const Color(0xFFB42318);
+      bgColor = const Color(0xFFFEF2F2);
+      textColor = AppColors.rejectedRed;
+      borderColor = AppColors.rejectedRed.withValues(alpha: 0.3);
       icon = Icons.cancel_outlined;
       label = s == 'CANCELLED_BY_CUSTOMER'
           ? 'Cancelled By Customer'
           : 'Cancelled By Counsellor';
     } else if (s == 'RESCHEDULED') {
       bgColor = const Color(0xFFF4F3FF);
-      textColor = const Color(0xFF5925DC);
+      textColor = AppColors.audioCallAccent;
+      borderColor = AppColors.audioCallAccent.withValues(alpha: 0.3);
       icon = Icons.sync_rounded;
       label = 'Rescheduled';
     } else if (s.startsWith('NO_SHOW')) {
-      bgColor = const Color(0xFFF8F9FA);
-      textColor = const Color(0xFF344054);
+      bgColor = AppColors.backgroundLight;
+      textColor = AppColors.textSecondary;
+      borderColor = AppColors.borderGrey;
       icon = Icons.person_off_outlined;
       label = s == 'NO_SHOW_CUSTOMER' ? 'No Show Customer' : 'No Show Counsellor';
     }
@@ -156,6 +164,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -192,15 +201,14 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter locally if needed
     final filteredBookings = _selectedStatusKey == 'ALL'
         ? _bookings
         : _bookings.where((b) => (b['status']?.toString().toUpperCase() ?? '') == _selectedStatusKey).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surfaceLight,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: const Row(
@@ -225,18 +233,18 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 height: 38,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surfaceLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: AppColors.primaryCyan.withValues(alpha: 0.3)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedStatusKey,
-                    icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primaryNavy, size: 20),
+                    icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primaryCyan, size: 20),
                     style: const TextStyle(
                       color: AppColors.primaryNavy,
                       fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                     onChanged: (String? newValue) {
                       if (newValue != null && newValue != _selectedStatusKey) {
@@ -270,9 +278,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surfaceLight,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: AppColors.borderGrey),
                   ),
                   child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +315,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+                          const Icon(Icons.error_outline, size: 48, color: AppColors.rejectedRed),
                           const SizedBox(height: 12),
                           Text(
                             _errorMessage!,
@@ -329,15 +337,15 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     ),
                   )
                 : filteredBookings.isEmpty
-                    ? Center(
+                    ? const Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.event_busy_outlined, size: 64, color: Colors.grey.shade400),
-                            const SizedBox(height: 12),
+                            Icon(Icons.event_busy_outlined, size: 64, color: AppColors.textSecondary),
+                            SizedBox(height: 12),
                             Text(
                               'No bookings found',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 16, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 16, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -359,9 +367,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppColors.surfaceLight,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey.shade200),
+                              border: Border.all(color: AppColors.borderGrey),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.02),
@@ -384,9 +392,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   formattedStart,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 13,
-                                    color: Colors.grey.shade600,
+                                    color: AppColors.textSecondary,
                                     fontWeight: FontWeight.w400,
                                   ),
                                 ),
@@ -396,7 +404,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                     Icon(
                                       isVideo ? Icons.videocam_outlined : Icons.call_outlined,
                                       size: 16,
-                                      color: Colors.grey.shade700,
+                                      color: isVideo ? AppColors.videoCallAccent : AppColors.audioCallAccent,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
@@ -404,7 +412,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
-                                        color: Colors.grey.shade700,
+                                        color: isVideo ? AppColors.videoCallAccent : AppColors.audioCallAccent,
                                       ),
                                     ),
                                     const SizedBox(width: 14),
@@ -425,8 +433,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFF2F4F7),
+                                          color: AppColors.mintBg,
                                           borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: AppColors.accentMint.withValues(alpha: 0.5)),
                                         ),
                                         child: const Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -435,12 +444,12 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                               'View',
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight: FontWeight.bold,
                                                 color: AppColors.primaryNavy,
                                               ),
                                             ),
                                             SizedBox(width: 2),
-                                            Icon(Icons.chevron_right, size: 16, color: AppColors.primaryNavy),
+                                            Icon(Icons.chevron_right, size: 16, color: AppColors.primaryCyan),
                                           ],
                                         ),
                                       ),
@@ -539,9 +548,9 @@ class _BookingDetailsSheetState extends State<_BookingDetailsSheet> {
             width: 90,
             child: Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
-                color: Colors.grey.shade600,
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -581,7 +590,7 @@ class _BookingDetailsSheetState extends State<_BookingDetailsSheet> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -594,7 +603,7 @@ class _BookingDetailsSheetState extends State<_BookingDetailsSheet> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: AppColors.dividerGrey,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -631,22 +640,22 @@ class _BookingDetailsSheetState extends State<_BookingDetailsSheet> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: AppColors.backgroundLight,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: AppColors.borderGrey),
               ),
               child: Column(
                 children: [
                   _buildDetailRow('Category', categoryName),
-                  const Divider(height: 1),
+                  const Divider(height: 1, color: AppColors.borderGrey),
                   _buildDetailRow('Counsellor', counsellorName),
-                  const Divider(height: 1),
+                  const Divider(height: 1, color: AppColors.borderGrey),
                   _buildDetailRow('Customer', customerName),
-                  const Divider(height: 1),
+                  const Divider(height: 1, color: AppColors.borderGrey),
                   _buildDetailRow('Mode', modeText),
-                  const Divider(height: 1),
+                  const Divider(height: 1, color: AppColors.borderGrey),
                   _buildDetailRow('Scheduled', scheduledWindow),
-                  const Divider(height: 1),
+                  const Divider(height: 1, color: AppColors.borderGrey),
                   _buildDetailRow('Price', priceStr),
                 ],
               ),
