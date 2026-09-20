@@ -128,7 +128,7 @@ class AuthApiService {
     required String phoneOtp,
   }) async {
     final url =
-        Uri.parse('${AppConstants.apiBaseUrl}/auth/register/counsellor');
+        Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.registerCounsellorEndpoint}');
     final body = {
       'email': email,
       'phone': phone,
@@ -182,12 +182,18 @@ class AuthApiService {
   Future<Map<String, dynamic>> loginCounsellor({
     required String email,
     required String password,
+    String? deviceToken,
+    String platform = 'ANDROID',
   }) async {
     final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.loginEndpoint}');
-    final payload = {
+    final payload = <String, dynamic>{
       'email': email,
       'password': password,
     };
+    if (deviceToken != null && deviceToken.isNotEmpty) {
+      payload['deviceToken'] = deviceToken;
+      payload['platform'] = platform;
+    }
 
     debugPrint('🐛 [Auth] LOGIN REQUEST URL: $url');
 
@@ -291,6 +297,241 @@ class AuthApiService {
       debugPrint('🐛 [Auth Exception] getCounsellorProfile: $e');
       if (e is Exception) rethrow;
       throw Exception('Network error while fetching profile: $e');
+    }
+  }
+
+  /// Update Counsellor Profile
+  /// Endpoint: PATCH /api/v1/counsellors/me
+  Future<Map<String, dynamic>> updateCounsellorProfile({
+    required String token,
+    String? bio,
+    double? hourlyRateAmountInRupees,
+    List<int>? specialisationIds,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.counsellorMeEndpoint}');
+    final payload = <String, dynamic>{};
+    if (bio != null) payload['bio'] = bio;
+    if (hourlyRateAmountInRupees != null) {
+      // Convert rupees to paise (1 INR = 100 paise)
+      payload['hourlyRateAmount'] = (hourlyRateAmountInRupees * 100).round();
+    }
+    if (specialisationIds != null) payload['specialisationIds'] = specialisationIds;
+
+    try {
+      final response = await _client.patch(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(payload),
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && responseData['success'] == true) {
+        return responseData['data'] is Map ? Map<String, dynamic>.from(responseData['data']) : {};
+      } else {
+        throw Exception(responseData['message'] ?? 'Failed to update profile');
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] updateCounsellorProfile: $e');
+      rethrow;
+    }
+  }
+
+  /// Set Availability Slots
+  /// Endpoint: PUT /api/v1/counsellors/me/availability
+  Future<Map<String, dynamic>> setAvailability({
+    required String token,
+    required List<Map<String, dynamic>> slots,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.availabilityEndpoint}');
+    try {
+      final response = await _client.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'slots': slots}),
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && responseData['success'] == true) {
+        return responseData;
+      } else {
+        throw Exception(responseData['message'] ?? 'Failed to update availability');
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] setAvailability: $e');
+      rethrow;
+    }
+  }
+
+  /// Get Counsellor Followers
+  /// Endpoint: GET /api/v1/counsellors/me/followers
+  Future<List<Map<String, dynamic>>> getFollowers({
+    required String token,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.followersEndpoint}?page=$page&limit=$limit');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true && responseData['data'] is List) {
+        return List<Map<String, dynamic>>.from(
+          (responseData['data'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+      }
+      return [];
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getFollowers: $e');
+      return [];
+    }
+  }
+
+  /// Register / Refresh FCM Device Token
+  /// Endpoint: POST /api/v1/notifications/device-tokens
+  Future<bool> registerDeviceToken({
+    required String token,
+    required String deviceToken,
+    String platform = 'ANDROID',
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.deviceTokensEndpoint}');
+    try {
+      final response = await _client.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'token': deviceToken,
+          'platform': platform,
+        }),
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('🐛 [API Exception] registerDeviceToken: $e');
+      return false;
+    }
+  }
+
+  /// Join Consultation Session (Agora RTC Token & Credentials)
+  /// Endpoint: POST /api/v1/consultations/:bookingId/join
+  Future<Map<String, dynamic>> joinConsultation({
+    required String token,
+    required dynamic bookingId,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.consultationsEndpoint}/$bookingId/join');
+    try {
+      final response = await _client.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && responseData['success'] == true) {
+        return responseData['data'] is Map ? Map<String, dynamic>.from(responseData['data']) : {};
+      } else {
+        throw Exception(responseData['message'] ?? 'Failed to join consultation session');
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] joinConsultation: $e');
+      rethrow;
+    }
+  }
+
+  /// Leave Consultation Session
+  /// Endpoint: POST /api/v1/consultations/:bookingId/leave
+  Future<bool> leaveConsultation({
+    required String token,
+    required dynamic bookingId,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.consultationsEndpoint}/$bookingId/leave');
+    try {
+      final response = await _client.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('🐛 [API Exception] leaveConsultation: $e');
+      return false;
+    }
+  }
+
+  /// End Consultation Session
+  /// Endpoint: POST /api/v1/consultations/:bookingId/end
+  Future<Map<String, dynamic>> endConsultation({
+    required String token,
+    required dynamic bookingId,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.consultationsEndpoint}/$bookingId/end');
+    try {
+      final response = await _client.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && responseData['success'] == true) {
+        return responseData['data'] is Map ? Map<String, dynamic>.from(responseData['data']) : {};
+      } else {
+        throw Exception(responseData['message'] ?? 'Failed to end consultation');
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] endConsultation: $e');
+      rethrow;
+    }
+  }
+
+  /// List Counsellor Bookings
+  /// Endpoint: GET /api/v1/bookings
+  Future<List<Map<String, dynamic>>> getCounsellorBookings({
+    required String token,
+    String? status,
+    String? consultationMode,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = <String>[
+      'page=$page',
+      'limit=$limit',
+      if (status != null && status.isNotEmpty) 'status=$status',
+      if (consultationMode != null && consultationMode.isNotEmpty) 'consultationMode=$consultationMode',
+    ];
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.bookingsEndpoint}?${queryParams.join('&')}');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true && responseData['data'] is List) {
+        return List<Map<String, dynamic>>.from(
+          (responseData['data'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+      }
+      return [];
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getCounsellorBookings: $e');
+      return [];
     }
   }
 

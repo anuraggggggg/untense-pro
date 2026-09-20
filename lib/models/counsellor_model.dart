@@ -189,7 +189,10 @@ class CounsellorModel {
       yearsExperience: _parseNumToInt(json['experienceYears'] ?? json['yearsExperience']),
       bio: (json['bio'] ?? '').toString(),
       qualification: (json['qualification'] ?? '').toString(),
-      hourlyRateAmount: _parseNumToDouble(json['hourlyRateAmount'] ?? json['hourly_rate']),
+      hourlyRateAmount: () {
+        final rawRate = _parseNumToDouble(json['hourlyRateAmount'] ?? json['hourly_rate']);
+        return rawRate > 5000 ? rawRate / 100.0 : rawRate;
+      }(),
       currency: (json['currency'] ?? 'INR').toString(),
       kycStatus: rawKycStatus,
       isVerified: verified,
