@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auth_api_service.dart';
 import '../../widgets/app_shimmer.dart';
+import '../../widgets/app_drawer.dart';
 
 class BookingsScreen extends StatefulWidget {
   const BookingsScreen({super.key});
@@ -206,11 +207,21 @@ class _BookingsScreenState extends State<BookingsScreen> {
         : _bookings.where((b) => (b['status']?.toString().toUpperCase() ?? '') == _selectedStatusKey).toList();
 
     return Scaffold(
+      drawer: const AppDrawer(),
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         backgroundColor: AppColors.surfaceLight,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: AppColors.primaryNavy, size: 26),
+            tooltip: 'Open Menu',
+            onPressed: () {
+              Scaffold.of(ctx).openDrawer();
+            },
+          ),
+        ),
         title: const Row(
           children: [
             Icon(Icons.event_note_outlined, color: AppColors.primaryNavy, size: 24),

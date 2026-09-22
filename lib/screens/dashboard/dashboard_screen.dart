@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
+import '../../widgets/app_drawer.dart';
 import '../../models/consultation_request_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/counsellor_provider.dart';
@@ -66,8 +67,18 @@ class _DashboardScreenState extends State<DashboardScreen>
     final isOnline = counsellor?.isOnline ?? false;
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        titleSpacing: 16,
+        titleSpacing: 0,
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: AppColors.primaryNavy, size: 26),
+            tooltip: 'Open Menu',
+            onPressed: () {
+              Scaffold.of(ctx).openDrawer();
+            },
+          ),
+        ),
         title: Row(
           children: [
             Container(

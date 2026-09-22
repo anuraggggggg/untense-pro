@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../widgets/app_drawer.dart';
 import '../../models/counsellor_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auth_api_service.dart';
@@ -54,7 +55,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final counsellor = authProvider.counsellor;
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: AppColors.primaryNavy, size: 26),
+            tooltip: 'Open Menu',
+            onPressed: () {
+              Scaffold.of(ctx).openDrawer();
+            },
+          ),
+        ),
         title: const Text('Counsellor Profile'),
         actions: [
           IconButton(

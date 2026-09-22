@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/constants/app_colors.dart';
 
+import '../widgets/app_drawer.dart';
+
 class MainLayoutScreen extends StatelessWidget {
   final Widget child;
 
@@ -37,6 +39,7 @@ class MainLayoutScreen extends StatelessWidget {
     final selectedIndex = _calculateSelectedIndex(context);
 
     return Scaffold(
+      drawer: const AppDrawer(),
       body: child,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

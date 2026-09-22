@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../widgets/app_shimmer.dart';
+import '../../widgets/app_drawer.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -81,11 +82,21 @@ class _WalletScreenState extends State<WalletScreen> {
     final walletProvider = context.watch<WalletProvider>();
 
     return Scaffold(
+      drawer: const AppDrawer(),
       backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         backgroundColor: AppColors.surfaceLight,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: AppColors.primaryNavy, size: 26),
+            tooltip: 'Open Menu',
+            onPressed: () {
+              Scaffold.of(ctx).openDrawer();
+            },
+          ),
+        ),
         title: const Row(
           children: [
             Icon(Icons.account_balance_wallet_outlined, color: AppColors.primaryNavy, size: 24),
