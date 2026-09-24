@@ -542,6 +542,63 @@ class AuthApiService {
     }
   }
 
+  /// Get Detailed Booking Request Statistics directly from REST API
+  /// Endpoint: GET /api/v1/bookings
+  Future<Map<String, dynamic>> getBookingStats({
+    required String token,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.bookingsEndpoint}?page=1&limit=100');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 304) && responseData['success'] == true) {
+        final data = responseData['data'];
+        List<Map<String, dynamic>> items = [];
+        int total = 0;
+
+        if (data is Map) {
+          if (data['items'] is List) {
+            items = List<Map<String, dynamic>>.from(
+              (data['items'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+            );
+          }
+          if (data['pagination'] is Map && data['pagination']['total'] != null) {
+            total = int.tryParse(data['pagination']['total'].toString()) ?? items.length;
+          } else {
+            total = items.length;
+          }
+        } else if (data is List) {
+          items = List<Map<String, dynamic>>.from(
+            data.map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+          total = items.length;
+        }
+
+        final Map<String, int> statusBreakdown = {};
+        for (var item in items) {
+          final st = (item['status']?.toString() ?? 'UNKNOWN').toUpperCase();
+          statusBreakdown[st] = (statusBreakdown[st] ?? 0) + 1;
+        }
+
+        return {
+          'total': total > items.length ? total : items.length,
+          'items': items,
+          'statusCounts': statusBreakdown,
+        };
+      }
+      return {'total': 0, 'items': <Map<String, dynamic>>[], 'statusCounts': <String, int>{}};
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getBookingStats: $e');
+      return {'total': 0, 'items': <Map<String, dynamic>>[], 'statusCounts': <String, int>{}};
+    }
+  }
+
   /// Get Single Booking Details
   /// Endpoint: GET /api/v1/bookings/:bookingId
   Future<Map<String, dynamic>> getBookingDetails({

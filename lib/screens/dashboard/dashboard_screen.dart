@@ -24,9 +24,14 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = context.read<AuthProvider>().firebaseUser;
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.firebaseUser;
       if (user != null) {
         context.read<RequestProvider>().listenToRequests(user.uid);
+      }
+      final token = authProvider.token;
+      if (token != null && token.isNotEmpty) {
+        context.read<RequestProvider>().fetchApiRequestStats(token);
       }
     });
   }
@@ -198,6 +203,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
             ),
           ),
+
+          // REST API Request Statistics Card
+          _buildApiStatsCard(requestProvider, authProvider.token),
 
           // Real-time Request Queues Tabs
           TabBar(
@@ -393,6 +401,138 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildApiStatsCard(RequestProvider requestProvider, String? token) {
+    final total = requestProvider.apiTotalRequests;
+    final counts = requestProvider.apiStatusCounts;
+    final isLoading = requestProvider.isApiLoading;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primaryNavy,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryNavy.withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryCyan.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.analytics_outlined,
+                      color: AppColors.primaryCyan,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Customer Requests (REST API)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.refresh_rounded,
+                        color: Colors.white70, size: 18),
+                onPressed: (isLoading || token == null)
+                    ? null
+                    : () {
+                        requestProvider.fetchApiRequestStats(token);
+                      },
+                tooltip: 'Refresh REST API Stats',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$total',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Text(
+                      'Total Requests Received',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  _buildStatBadge('Confirmed', counts['CONFIRMED'] ?? 0, AppColors.onlineGreen),
+                  _buildStatBadge('Pending', counts['PENDING_PAYMENT'] ?? counts['PENDING'] ?? 0, Colors.orangeAccent),
+                  _buildStatBadge('Completed', counts['COMPLETED'] ?? 0, AppColors.primaryCyan),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatBadge(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
+      ),
+      child: Text(
+        '$label: $count',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

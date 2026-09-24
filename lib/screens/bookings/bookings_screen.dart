@@ -281,8 +281,51 @@ class _BookingsScreenState extends State<BookingsScreen> {
       body: RefreshIndicator(
         onRefresh: _fetchBookings,
         color: AppColors.primaryCyan,
-        child: _isLoading
-            ? ListView.builder(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: AppColors.surfaceLight,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.analytics_outlined, size: 18, color: AppColors.primaryCyan),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Total Requests Received: ${_bookings.length}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryNavy,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.mintBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.accentMint),
+                    ),
+                    child: const Text(
+                      'REST API',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.onlineGreen,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppColors.borderGrey),
+            Expanded(
+              child: _isLoading
+                  ? ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: 5,
                 itemBuilder: (context, index) => Container(
@@ -472,6 +515,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
                           );
                         },
                       ),
+            ),
+          ],
+        ),
       ),
     );
   }
