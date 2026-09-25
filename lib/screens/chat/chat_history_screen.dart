@@ -266,7 +266,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
 
     return Scaffold(
       backgroundColor: darkBg,
-      drawer: const AppDrawer(),
+      drawer: _selectedThread == null ? const AppDrawer() : null,
       appBar: _buildAppBar(),
       body: _selectedThread == null ? _buildThreadsList() : _buildConversationView(),
     );
@@ -283,12 +283,21 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
     return AppBar(
       backgroundColor: darkBg,
       elevation: 0,
-      leading: Builder(
-        builder: (ctx) => IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Colors.white),
-          onPressed: () => Scaffold.of(ctx).openDrawer(),
-        ),
-      ),
+      leading: currentThread == null
+          ? Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
+              ),
+            )
+          : IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () {
+                setState(() {
+                  _selectedThread = null;
+                });
+              },
+            ),
       title: currentThread == null
           ? const Row(
               children: [
@@ -305,36 +314,13 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
                 ),
               ],
             )
-          : Row(
-              children: [
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: const Icon(Icons.arrow_back_rounded,
-                      color: Colors.white, size: 22),
-                  onPressed: () {
-                    setState(() {
-                      _selectedThread = null;
-                    });
-                  },
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.chat_bubble_outline_rounded,
-                    color: AppColors.primaryCyan, size: 22),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    customerName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
+          : Text(
+              customerName,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
       actions: [
         IconButton(
