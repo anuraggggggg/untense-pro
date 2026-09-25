@@ -224,7 +224,8 @@ class AuthApiService {
 
         debugPrint('🐛 [Auth] PARSED USER: id=${user['id']}, email=${user['email']}, role=${user['role']}');
         debugPrint('🐛 [Auth] PARSED ROLE: $role');
-        debugPrint('🐛 [Auth] TOKEN RECEIVED: ${token != null && token.isNotEmpty ? "[PRESENT]" : "[MISSING]"}');
+        debugPrint('🐛 [Auth] TOKEN RECEIVED: $token');
+        debugPrint('🔑 [Auth] BEARER TOKEN: Bearer $token');
 
         if (token == null || token.isEmpty) {
           throw Exception('Authentication token missing in response');
@@ -286,7 +287,7 @@ class AuthApiService {
         final profileData = responseData['data'] is Map<String, dynamic>
             ? Map<String, dynamic>.from(responseData['data'])
             : <String, dynamic>{};
-        debugPrint('🐛 [Auth] Counsellor Profile loaded successfully for userId=${profileData['userId']}');
+        debugPrint('🐛 [Auth] Counsellor Profile loaded successfully: Counsellor ID=${profileData['id'] ?? profileData['_id'] ?? profileData['userId']} (userId=${profileData['userId']})');
         return profileData;
       } else {
         final message = responseData['message'] ?? 'Failed to fetch counsellor profile';
@@ -726,6 +727,155 @@ class AuthApiService {
       }
     } catch (e) {
       debugPrint('🐛 [API Exception] applyCoupon: $e');
+      rethrow;
+    }
+  }
+
+  /// Get Chat Threads List
+  /// Endpoint: GET /api/v1/chat/threads
+  Future<List<Map<String, dynamic>>> getChatThreads({
+    required String token,
+  }) async {
+    final url = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.chatThreadsEndpoint}');
+    try {
+      final response = await _client.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 304) && responseData['success'] == true) {
+        final data = responseData['data'];
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(
+            data.map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+        } else if (data is Map && data['items'] is List) {
+          return List<Map<String, dynamic>>.from(
+            (data['items'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getChatThreads: $e');
+      return [];
+    }
+  }
+
+  /// Get Messages for a specific Thread
+  /// Endpoint: GET /api/v1/chat/threads/:threadId/messages
+  Future<List<Map<String, dynamic>>> getThreadMessages({
+    required String token,
+    required String threadId,
+  }) async {
+    final primaryUrl = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.chatThreadsEndpoint}/$threadId/messages?limit=100');
+    try {
+      final response = await _client.get(
+        primaryUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 304) && responseData['success'] == true) {
+        final data = responseData['data'];
+        if (data is Map && data['items'] is List) {
+          return List<Map<String, dynamic>>.from(
+            (data['items'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+        } else if (data is List) {
+          return List<Map<String, dynamic>>.from(
+            data.map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getThreadMessages primary endpoint failed: $e');
+    }
+
+    // Fallback: try GET /chat/threads?threadId=$threadId
+    final fallbackUrl = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.chatThreadsEndpoint}?threadId=$threadId&limit=100');
+    try {
+      final response = await _client.get(
+        fallbackUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 304) && responseData['success'] == true) {
+        final data = responseData['data'];
+        if (data is Map && data['items'] is List) {
+          return List<Map<String, dynamic>>.from(
+            (data['items'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+        } else if (data is List) {
+          return List<Map<String, dynamic>>.from(
+            data.map((e) => Map<String, dynamic>.from(e as Map)),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] getThreadMessages fallback endpoint failed: $e');
+    }
+
+    return [];
+  }
+
+  /// Send Chat Message
+  /// Endpoint: POST /api/v1/chat/threads/:threadId/messages
+  Future<Map<String, dynamic>> sendChatMessage({
+    required String token,
+    required String threadId,
+    required String body,
+  }) async {
+    final primaryUrl = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.chatThreadsEndpoint}/$threadId/messages');
+    try {
+      final response = await _client.post(
+        primaryUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'body': body.trim(),
+        }),
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && responseData['success'] == true) {
+        return responseData['data'] is Map ? Map<String, dynamic>.from(responseData['data']) : responseData;
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] sendChatMessage primary failed: $e');
+    }
+
+    // Fallback to POST /chat/threads
+    final fallbackUrl = Uri.parse('${AppConstants.apiBaseUrl}${AppConstants.chatThreadsEndpoint}');
+    try {
+      final response = await _client.post(
+        fallbackUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'threadId': threadId,
+          'body': body.trim(),
+        }),
+      );
+      final responseData = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && responseData['success'] == true) {
+        return responseData['data'] is Map ? Map<String, dynamic>.from(responseData['data']) : responseData;
+      } else {
+        throw Exception(responseData['message'] ?? 'Failed to send chat message');
+      }
+    } catch (e) {
+      debugPrint('🐛 [API Exception] sendChatMessage fallback failed: $e');
       rethrow;
     }
   }

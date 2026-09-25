@@ -32,6 +32,12 @@ class UnTenseProApp extends StatelessWidget {
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
+          if (authProvider.token != null) {
+            debugPrint('🔑 [MainApp] BEARER TOKEN: Bearer ${authProvider.token}');
+          }
+          if (authProvider.counsellor != null) {
+            debugPrint('🐛 [MainApp] Counsellor ID: ${authProvider.counsellor?.uid} (userId: ${authProvider.counsellor?.userId})');
+          }
           final router = AppRouter.createRouter(authProvider);
           return MaterialApp.router(
             title: 'UnTense Professional',

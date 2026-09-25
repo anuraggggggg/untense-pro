@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../widgets/app_drawer.dart';
-import '../../models/consultation_request_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/counsellor_provider.dart';
 import '../../providers/request_provider.dart';
+import '../../services/auth_api_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,6 +19,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final AuthApiService _apiService = AuthApiService();
 
   @override
   void initState() {
@@ -31,7 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
       final token = authProvider.token;
       if (token != null && token.isNotEmpty) {
-        context.read<RequestProvider>().fetchApiRequestStats(token);
+        context.read<RequestProvider>().fetchApiBookings(token);
       }
     });
   }
@@ -48,26 +50,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     final counsellor = authProvider.counsellor;
     final counsellorProvider = context.watch<CounsellorProvider>();
     final requestProvider = context.watch<RequestProvider>();
+    final token = authProvider.token;
 
-    final requests = requestProvider.requests;
-
-    final pendingChat = requests
-        .where((r) =>
-            r.requestType == RequestType.chat &&
-            r.status == RequestStatus.pending)
-        .toList();
-    final pendingAudio = requests
-        .where((r) =>
-            r.requestType == RequestType.audio &&
-            r.status == RequestStatus.pending)
-        .toList();
-    final pendingVideo = requests
-        .where((r) =>
-            r.requestType == RequestType.video &&
-            r.status == RequestStatus.pending)
-        .toList();
-    final allPending =
-        requests.where((r) => r.status == RequestStatus.pending).toList();
+    final apiBookings = requestProvider.apiBookings;
+    final apiChat = requestProvider.apiChatBookings;
+    final apiAudio = requestProvider.apiAudioBookings;
+    final apiVideo = requestProvider.apiVideoBookings;
 
     final isOnline = counsellor?.isOnline ?? false;
 
@@ -204,20 +192,17 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
 
-          // REST API Request Statistics Card
-          _buildApiStatsCard(requestProvider, authProvider.token),
-
-          // Real-time Request Queues Tabs
+          // Request Queues Tabs (Powered by GET /api/v1/bookings)
           TabBar(
             controller: _tabController,
             labelColor: AppColors.primaryNavy,
             unselectedLabelColor: AppColors.textSecondary,
             indicatorColor: AppColors.primaryCyan,
             tabs: [
-              Tab(text: 'All (${allPending.length})'),
-              Tab(text: 'Chat (${pendingChat.length})'),
-              Tab(text: 'Audio (${pendingAudio.length})'),
-              Tab(text: 'Video (${pendingVideo.length})'),
+              Tab(text: 'All (${apiBookings.length})'),
+              Tab(text: 'Chat (${apiChat.length})'),
+              Tab(text: 'Audio (${apiAudio.length})'),
+              Tab(text: 'Video (${apiVideo.length})'),
             ],
           ),
 
@@ -226,10 +211,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildRequestList(allPending),
-                _buildRequestList(pendingChat),
-                _buildRequestList(pendingAudio),
-                _buildRequestList(pendingVideo),
+                _buildApiBookingList(apiBookings, requestProvider, token),
+                _buildApiBookingList(apiChat, requestProvider, token),
+                _buildApiBookingList(apiAudio, requestProvider, token),
+                _buildApiBookingList(apiVideo, requestProvider, token),
               ],
             ),
           ),
@@ -238,58 +223,110 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildRequestList(List<ConsultationRequestModel> requestList) {
-    if (requestList.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildApiBookingList(
+      List<Map<String, dynamic>> bookingList,
+      RequestProvider requestProvider,
+      String? token) {
+    if (requestProvider.isApiLoading && bookingList.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryNavy),
+      );
+    }
+
+    if (bookingList.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () async {
+          if (token != null) {
+            await requestProvider.fetchApiBookings(token);
+          }
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 12),
-            Text(
-              'No active requests in queue',
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.4,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No booking requests in queue',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Pull down to refresh',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: requestList.length,
-      itemBuilder: (context, index) {
-        final req = requestList[index];
-        return _buildRequestCard(req);
+    return RefreshIndicator(
+      onRefresh: () async {
+        if (token != null) {
+          await requestProvider.fetchApiBookings(token);
+        }
       },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: bookingList.length,
+        itemBuilder: (context, index) {
+          final booking = bookingList[index];
+          return _buildApiBookingCard(booking, token);
+        },
+      ),
     );
   }
 
-  Widget _buildRequestCard(ConsultationRequestModel request) {
+  Widget _buildApiBookingCard(Map<String, dynamic> booking, String? token) {
+    final mode = (booking['consultationMode'] ?? 'CHAT').toString().toUpperCase();
+    final status = (booking['status'] ?? 'PENDING').toString().toUpperCase();
+
     Color badgeColor;
     IconData iconData;
-    String typeLabel;
+    String modeLabel;
 
-    switch (request.requestType) {
-      case RequestType.audio:
+    switch (mode) {
+      case 'AUDIO':
         badgeColor = AppColors.audioCallAccent;
         iconData = Icons.call_outlined;
-        typeLabel = 'Audio Call';
+        modeLabel = 'Audio Call';
         break;
-      case RequestType.video:
+      case 'VIDEO':
         badgeColor = AppColors.videoCallAccent;
         iconData = Icons.videocam_outlined;
-        typeLabel = 'Video Call';
+        modeLabel = 'Video Call';
         break;
-      case RequestType.chat:
+      case 'CHAT':
+      default:
         badgeColor = AppColors.chatAccent;
         iconData = Icons.chat_bubble_outline;
-        typeLabel = 'Text Chat';
+        modeLabel = 'Text Chat';
         break;
     }
 
+    final categoryName = booking['category'] is Map
+        ? (booking['category']['name'] ?? 'General Consultation')
+        : 'General Consultation';
+    final bookingType = (booking['bookingType'] ?? 'INSTANT').toString();
+    final priceAmount = booking['priceAmount'] is num
+        ? (booking['priceAmount'] as num) / 100.0
+        : 0.0;
+    final scheduledTimeStr = _formatDateTime(
+        booking['scheduledStartAt'] ?? booking['createdAt']);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -307,14 +344,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        request.clientName,
+                        categoryName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
-                        'Fee: ₹${request.feeAmount.toStringAsFixed(0)} • Requested just now',
+                        'Fee: ₹${priceAmount.toStringAsFixed(0)} • Type: $bookingType',
                         style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
@@ -328,7 +366,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    typeLabel,
+                    modeLabel,
                     style: TextStyle(
                       color: badgeColor,
                       fontWeight: FontWeight.bold,
@@ -338,203 +376,131 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-
-            // Accept / Decline Buttons
+            const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => context
-                        .read<RequestProvider>()
-                        .declineRequest(request.id),
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    label: const Text('Decline',
-                        style: TextStyle(color: Colors.red)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      scheduledTimeStr,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final reqProvider = context.read<RequestProvider>();
-                      await reqProvider.acceptRequest(request.id);
+                _buildStatusBadge(status),
+              ],
+            ),
+            if (status == 'CONFIRMED' || status == 'IN_PROGRESS' || status == 'ACCEPTED') ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    if (token == null) return;
+                    try {
+                      final res = await _apiService.joinConsultation(
+                        token: token,
+                        bookingId: booking['id'],
+                      );
+                      final channelId =
+                          res['channelId'] ?? res['channelName'] ?? booking['id'];
+                      final agoraToken = res['token'] ?? res['agoraToken'];
 
                       if (!mounted) return;
 
-                      if (request.requestType == RequestType.audio) {
+                      if (mode == 'AUDIO') {
                         context.push('/audio-call', extra: {
-                          'channelId': request.channelId,
-                          'clientName': request.clientName,
-                          'agoraToken': request.agoraToken,
+                          'channelId': channelId,
+                          'clientName': 'Client ($categoryName)',
+                          'agoraToken': agoraToken,
                         });
-                      } else if (request.requestType == RequestType.video) {
+                      } else if (mode == 'VIDEO') {
                         context.push('/video-call', extra: {
-                          'channelId': request.channelId,
-                          'clientName': request.clientName,
-                          'agoraToken': request.agoraToken,
+                          'channelId': channelId,
+                          'clientName': 'Client ($categoryName)',
+                          'agoraToken': agoraToken,
                         });
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(
-                                  'Accepted Chat request with ${request.clientName}')),
-                        );
+                        context.go('/chat');
                       }
-                    },
-                    icon: const Icon(Icons.check),
-                    label: const Text('Accept'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryNavy,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to join session: $e')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.video_call_rounded),
+                  label: const Text('Join Session Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryNavy,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildApiStatsCard(RequestProvider requestProvider, String? token) {
-    final total = requestProvider.apiTotalRequests;
-    final counts = requestProvider.apiStatusCounts;
-    final isLoading = requestProvider.isApiLoading;
+  Widget _buildStatusBadge(String status) {
+    Color bgColor = const Color(0xFFEFF8FF);
+    Color textColor = AppColors.primaryCyan;
+    String label = status;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.primaryNavy,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryNavy.withValues(alpha: 0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryCyan.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.analytics_outlined,
-                      color: AppColors.primaryCyan,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Customer Requests (REST API)',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: isLoading
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.refresh_rounded,
-                        color: Colors.white70, size: 18),
-                onPressed: (isLoading || token == null)
-                    ? null
-                    : () {
-                        requestProvider.fetchApiRequestStats(token);
-                      },
-                tooltip: 'Refresh REST API Stats',
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$total',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const Text(
-                      'Total Requests Received',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  _buildStatBadge('Confirmed', counts['CONFIRMED'] ?? 0, AppColors.onlineGreen),
-                  _buildStatBadge('Pending', counts['PENDING_PAYMENT'] ?? counts['PENDING'] ?? 0, Colors.orangeAccent),
-                  _buildStatBadge('Completed', counts['COMPLETED'] ?? 0, AppColors.primaryCyan),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+    if (status == 'COMPLETED') {
+      bgColor = AppColors.mintBg;
+      textColor = AppColors.onlineGreen;
+      label = 'Completed';
+    } else if (status == 'CONFIRMED') {
+      bgColor = const Color(0xFFEFF8FF);
+      textColor = AppColors.primaryCyan;
+      label = 'Confirmed';
+    } else if (status == 'IN_PROGRESS') {
+      bgColor = const Color(0xFFFEF2F2);
+      textColor = AppColors.rejectedRed;
+      label = 'In Progress';
+    } else if (status == 'PENDING_PAYMENT' || status == 'PENDING') {
+      bgColor = const Color(0xFFFFFBEB);
+      textColor = AppColors.pendingYellow;
+      label = 'Pending Payment';
+    } else if (status.startsWith('CANCELLED')) {
+      bgColor = const Color(0xFFFEF2F2);
+      textColor = AppColors.rejectedRed;
+      label = 'Cancelled';
+    }
 
-  Widget _buildStatBadge(String label, int count, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        '$label: $count',
+        label,
         style: TextStyle(
-          color: color,
-          fontSize: 10,
+          color: textColor,
+          fontSize: 11,
           fontWeight: FontWeight.bold,
         ),
       ),
     );
+  }
+
+  String _formatDateTime(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'N/A';
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      return DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+    } catch (_) {
+      return isoString;
+    }
   }
 }

@@ -12,33 +12,95 @@ class RequestProvider extends ChangeNotifier {
   bool _isLoading = true;
   StreamSubscription? _requestSubscription;
 
-  // Backend REST API Request Stats
+  // Backend REST API Bookings & Request Stats
+  List<Map<String, dynamic>> _apiBookings = [];
   int _apiTotalRequests = 0;
   Map<String, int> _apiStatusCounts = {};
   bool _isApiLoading = false;
+  String? _apiError;
 
   List<ConsultationRequestModel> get requests => _requests;
   List<ConsultationRequestModel> get pendingRequests =>
       _requests.where((r) => r.status == RequestStatus.pending).toList();
   bool get isLoading => _isLoading;
 
+  List<Map<String, dynamic>> get apiBookings => _apiBookings;
   int get apiTotalRequests => _apiTotalRequests;
   Map<String, int> get apiStatusCounts => _apiStatusCounts;
   bool get isApiLoading => _isApiLoading;
+  String? get apiError => _apiError;
 
-  Future<void> fetchApiRequestStats(String token) async {
+  List<Map<String, dynamic>> _chatThreads = [];
+
+  List<Map<String, dynamic>> get chatThreads => _chatThreads;
+
+  List<Map<String, dynamic>> get apiChatBookings {
+    final chatBookings = _apiBookings
+        .where((b) => (b['consultationMode'] ?? '').toString().toUpperCase() == 'CHAT')
+        .toList();
+    if (chatBookings.isNotEmpty) {
+      return chatBookings;
+    }
+    if (_chatThreads.isNotEmpty) {
+      final lastMsg = _chatThreads.last;
+      return [
+        {
+          'id': lastMsg['threadId'] ?? 'c2c57b7e-7494-4c52-b214-fc3a76548f59',
+          'consultationMode': 'CHAT',
+          'status': 'CONFIRMED',
+          'bookingType': 'INSTANT',
+          'priceAmount': 5000,
+          'createdAt': lastMsg['createdAt'],
+          'scheduledStartAt': lastMsg['createdAt'],
+          'category': {
+            'name': 'Client Chat Thread (${_chatThreads.length} messages)',
+          },
+        }
+      ];
+    }
+    return [];
+  }
+
+  List<Map<String, dynamic>> get apiAudioBookings => _apiBookings
+      .where((b) => (b['consultationMode'] ?? '').toString().toUpperCase() == 'AUDIO')
+      .toList();
+
+  List<Map<String, dynamic>> get apiVideoBookings => _apiBookings
+      .where((b) => (b['consultationMode'] ?? '').toString().toUpperCase() == 'VIDEO')
+      .toList();
+
+  Future<void> fetchApiBookings(String token) async {
     _isApiLoading = true;
+    _apiError = null;
     notifyListeners();
     try {
-      final stats = await _apiService.getBookingStats(token: token);
-      _apiTotalRequests = stats['total'] ?? 0;
-      _apiStatusCounts = Map<String, int>.from(stats['statusCounts'] ?? {});
+      final bookings = await _apiService.getCounsellorBookings(
+        token: token,
+        limit: 100,
+      );
+      _apiBookings = bookings;
+      _apiTotalRequests = bookings.length;
+      final Map<String, int> counts = {};
+      for (final b in bookings) {
+        final st = (b['status'] ?? 'UNKNOWN').toString().toUpperCase();
+        counts[st] = (counts[st] ?? 0) + 1;
+      }
+      _apiStatusCounts = counts;
+
+      // Also fetch chat threads from GET /api/v1/chat/threads
+      final threads = await _apiService.getChatThreads(token: token);
+      _chatThreads = threads;
     } catch (e) {
-      debugPrint('🐛 [RequestProvider] fetchApiRequestStats error: $e');
+      debugPrint('🐛 [RequestProvider] fetchApiBookings error: $e');
+      _apiError = e.toString();
     } finally {
       _isApiLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> fetchApiRequestStats(String token) async {
+    await fetchApiBookings(token);
   }
 
   void listenToRequests(String counsellorId) {

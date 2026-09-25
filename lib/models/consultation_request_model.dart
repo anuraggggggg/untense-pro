@@ -29,6 +29,65 @@ class ConsultationRequestModel {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
+  factory ConsultationRequestModel.fromApiJson(Map<String, dynamic> json) {
+    final modeStr = (json['consultationMode'] ?? '').toString().toUpperCase();
+    RequestType type;
+    if (modeStr == 'AUDIO') {
+      type = RequestType.audio;
+    } else if (modeStr == 'VIDEO') {
+      type = RequestType.video;
+    } else {
+      type = RequestType.chat;
+    }
+
+    final statusStr = (json['status'] ?? '').toString().toUpperCase();
+    RequestStatus reqStatus;
+    if (statusStr == 'COMPLETED') {
+      reqStatus = RequestStatus.completed;
+    } else if (statusStr.startsWith('CANCELLED') || statusStr == 'DECLINED') {
+      reqStatus = RequestStatus.declined;
+    } else if (statusStr == 'CONFIRMED' || statusStr == 'IN_PROGRESS' || statusStr == 'ACCEPTED') {
+      reqStatus = RequestStatus.accepted;
+    } else {
+      reqStatus = RequestStatus.pending;
+    }
+
+    final catName = json['category'] is Map ? (json['category']['name'] ?? '') : '';
+    final custId = (json['customerId'] ?? '').toString();
+    final shortCustId = custId.length > 6 ? custId.substring(0, 6) : custId;
+    final clientName = catName.isNotEmpty
+        ? 'Client ($catName)'
+        : (shortCustId.isNotEmpty ? 'Client #$shortCustId' : 'Anonymous Client');
+
+    final price = json['priceAmount'];
+    double fee = 0.0;
+    if (price is num) {
+      fee = price.toDouble() / 100.0;
+    } else if (price != null) {
+      fee = (double.tryParse(price.toString()) ?? 0.0) / 100.0;
+    }
+
+    DateTime parsedCreated = DateTime.now();
+    if (json['createdAt'] != null) {
+      parsedCreated = DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now();
+    } else if (json['scheduledStartAt'] != null) {
+      parsedCreated = DateTime.tryParse(json['scheduledStartAt'].toString()) ?? DateTime.now();
+    }
+
+    return ConsultationRequestModel(
+      id: json['id']?.toString() ?? '',
+      clientId: custId,
+      clientName: clientName,
+      counsellorId: json['counsellorId']?.toString() ?? '',
+      requestType: type,
+      status: reqStatus,
+      feeAmount: fee,
+      channelId: json['id']?.toString() ?? '',
+      agoraToken: json['agoraToken']?.toString(),
+      createdAt: parsedCreated,
+    );
+  }
+
   factory ConsultationRequestModel.fromMap(
       Map<String, dynamic> map, String id) {
     return ConsultationRequestModel(

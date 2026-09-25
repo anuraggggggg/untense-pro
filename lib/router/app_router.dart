@@ -13,6 +13,7 @@ import '../screens/consultation/video_call_screen.dart';
 import '../screens/wallet/wallet_screen.dart';
 import '../screens/bookings/bookings_screen.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/chat/chat_history_screen.dart';
 
 class AppRouter {
   static GoRouter createRouter(AuthProvider authProvider) {
@@ -100,6 +101,10 @@ class AppRouter {
             GoRoute(
               path: '/profile',
               builder: (context, state) => const ProfileScreen(),
+            ),
+            GoRoute(
+              path: '/chat',
+              builder: (context, state) => const ChatHistoryScreen(),
             ),
           ],
         ),

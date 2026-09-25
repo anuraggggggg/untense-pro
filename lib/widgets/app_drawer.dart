@@ -165,12 +165,14 @@ class AppDrawer extends StatelessWidget {
                   ),
                   _buildDrawerItem(
                     context: context,
-                    title: 'Chat',
+                    title: 'Chat History',
                     icon: Icons.chat_bubble_outline_rounded,
                     isSelected: currentLocation == '/chat',
                     onTap: () {
                       Navigator.pop(context);
-                      context.go('/dashboard');
+                      if (currentLocation != '/chat') {
+                        context.go('/chat');
+                      }
                     },
                   ),
                   _buildDrawerItem(

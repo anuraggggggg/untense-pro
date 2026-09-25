@@ -37,6 +37,7 @@ class AuthProvider extends ChangeNotifier {
       try {
         final profileData = await _apiService.getCounsellorProfile(token: _token!);
         _counsellor = CounsellorModel.fromApiJson(profileData, _counsellor?.email);
+        debugPrint('🐛 [Auth] Refreshed Counsellor ID: ${_counsellor?.uid} (userId: ${_counsellor?.userId})');
         notifyListeners();
       } catch (e) {
         debugPrint('🐛 [Auth Error] refreshProfile failed: $e');
@@ -54,10 +55,11 @@ class AuthProvider extends ChangeNotifier {
 
       if (storedToken != null && storedToken.isNotEmpty) {
         debugPrint('🐛 [Auth] Found stored JWT token. Restoring session via GET /counsellors/me...');
+        debugPrint('🔑 [Auth] BEARER TOKEN: Bearer $storedToken');
         final profileData = await _apiService.getCounsellorProfile(token: storedToken);
         _token = storedToken;
         _counsellor = CounsellorModel.fromApiJson(profileData);
-        debugPrint('🐛 [Auth] Session restored successfully for counsellor: ${_counsellor?.fullName}');
+        debugPrint('🐛 [Auth] Session restored successfully for counsellor: ${_counsellor?.fullName} (Counsellor ID: ${_counsellor?.uid}, userId: ${_counsellor?.userId})');
       } else {
         debugPrint('🐛 [Auth] No stored JWT token found.');
       }
@@ -192,6 +194,8 @@ class AuthProvider extends ChangeNotifier {
       _apiUserData = userData;
       _counsellor = CounsellorModel.fromApiJson(profileData, email);
 
+      debugPrint('🐛 [Auth] Counsellor ID: ${_counsellor?.uid} (userId: ${_counsellor?.userId})');
+      debugPrint('🔑 [Auth] BEARER TOKEN: Bearer $jwtToken');
       debugPrint('🐛 [Auth] DASHBOARD NAVIGATION');
     } catch (e) {
       final apiError = e.toString().replaceAll('Exception: ', '').trim();
