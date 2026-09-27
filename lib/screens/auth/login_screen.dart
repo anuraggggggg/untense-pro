@@ -23,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   AuthMode _authMode = AuthMode.password;
   bool _otpSent = false;
+  bool _obscurePassword = true;
   String? _errorMessage;
 
   String? _successMessage;
@@ -141,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+    final password = _passwordController.text;
 
     final authProvider = context.read<AuthProvider>();
     try {
@@ -338,6 +339,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    textCapitalization: TextCapitalization.none,
                     decoration: const InputDecoration(
                       labelText: 'Email Address',
                       prefixIcon: Icon(Icons.email_outlined),
@@ -352,10 +356,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (_authMode == AuthMode.password) ...[
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      obscureText: _obscurePassword,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      textCapitalization: TextCapitalization.none,
+                      decoration: InputDecoration(
                         labelText: 'Password',
-                        prefixIcon: Icon(Icons.lock_outline),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                       ),
                       validator: (val) => val == null || val.length < 6
                           ? 'Password must be 6+ chars'
