@@ -250,7 +250,7 @@ class CounsellorModel {
     };
   }
 
-  static VerificationStatus _parseStatus(String? status) {
+  static VerificationStatus parseStatus(String? status) {
     switch (status?.toUpperCase()) {
       case 'APPROVED':
         return VerificationStatus.approved;
