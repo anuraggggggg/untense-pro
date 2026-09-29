@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -25,14 +26,26 @@ class _DashboardScreenState extends State<DashboardScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        final tabs = ['All', 'Chat', 'Audio', 'Video'];
+        debugPrint(
+            '📊 [DashboardScreen] Switched tab to index ${_tabController.index} (${tabs[_tabController.index]})');
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
       final user = authProvider.firebaseUser;
+      debugPrint('🚀 [DashboardScreen] Initialized. Firebase User: ${user?.uid}');
       if (user != null) {
+        debugPrint('📡 [DashboardScreen] Subscribing to Firestore requests for UID: ${user.uid}');
         context.read<RequestProvider>().listenToRequests(user.uid);
       }
       final token = authProvider.token;
+      debugPrint('🔑 [DashboardScreen] API Token present: ${token != null && token.isNotEmpty}');
       if (token != null && token.isNotEmpty) {
+        debugPrint('🔄 [DashboardScreen] Fetching initial API bookings...');
         context.read<RequestProvider>().fetchApiBookings(token);
       }
     });
@@ -126,11 +139,18 @@ class _DashboardScreenState extends State<DashboardScreen>
             icon: const Icon(Icons.account_balance_wallet_outlined,
                 color: AppColors.primaryNavy),
             tooltip: 'Wallet & Earnings',
-            onPressed: () => context.go('/wallet'),
+            onPressed: () {
+              debugPrint('👛 [DashboardScreen] Wallet button tapped -> Navigating to /wallet');
+              context.go('/wallet');
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.primaryNavy),
-            onPressed: () => context.read<AuthProvider>().signOut(),
+            tooltip: 'Sign Out',
+            onPressed: () {
+              debugPrint('🚪 [DashboardScreen] Sign Out button tapped -> Signing out');
+              context.read<AuthProvider>().signOut();
+            },
           ),
         ],
       ),
@@ -183,8 +203,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                       AppColors.primaryCyan.withValues(alpha: 0.3),
                   onChanged: (val) {
                     if (counsellor != null) {
+                      debugPrint(
+                          '⚡ [DashboardScreen] Toggling online status for UID ${counsellor.uid} -> $val');
                       counsellorProvider.toggleOnlineStatus(
                           counsellor.uid, val);
+                    } else {
+                      debugPrint(
+                          '⚠️ [DashboardScreen] Cannot toggle online status: counsellor is null');
                     }
                   },
                 ),
@@ -233,11 +258,57 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
     }
 
+    if (requestProvider.apiError != null && bookingList.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 56, color: Colors.redAccent),
+              const SizedBox(height: 12),
+              const Text(
+                'Failed to load bookings',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                requestProvider.apiError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (token != null) {
+                    debugPrint('🔄 [DashboardScreen] Retrying fetchApiBookings...');
+                    requestProvider.fetchApiBookings(token);
+                  }
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (bookingList.isEmpty) {
       return RefreshIndicator(
         onRefresh: () async {
+          debugPrint('🔄 [DashboardScreen] Manual pull-to-refresh triggered (empty list)');
           if (token != null) {
             await requestProvider.fetchApiBookings(token);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                      'Refreshed: ${requestProvider.apiBookings.length} booking request(s) found'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
           }
         },
         child: ListView(
@@ -271,8 +342,18 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     return RefreshIndicator(
       onRefresh: () async {
+        debugPrint('🔄 [DashboardScreen] Manual pull-to-refresh triggered (${bookingList.length} items)');
         if (token != null) {
           await requestProvider.fetchApiBookings(token);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    'Refreshed: ${requestProvider.apiBookings.length} booking request(s) found'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
       },
       child: ListView.builder(
@@ -332,6 +413,19 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (kDebugMode) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6.0),
+                child: Text(
+                  '🐛 [DEBUG] ID: ${booking['id'] ?? 'N/A'} | Status: $status | Mode: $mode',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ],
             Row(
               children: [
                 CircleAvatar(
@@ -399,37 +493,51 @@ class _DashboardScreenState extends State<DashboardScreen>
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    if (token == null) return;
+                    if (token == null) {
+                      debugPrint('⚠️ [DashboardScreen] Cannot join session: auth token is null');
+                      return;
+                    }
+                    final bookingId = booking['id'];
+                    debugPrint('📞 [DashboardScreen] Attempting to join session for bookingId: $bookingId (Mode: $mode)');
                     try {
                       final res = await _apiService.joinConsultation(
                         token: token,
-                        bookingId: booking['id'],
+                        bookingId: bookingId,
                       );
+                      debugPrint('✅ [DashboardScreen] joinConsultation response: $res');
                       final channelId =
-                          res['channelId'] ?? res['channelName'] ?? booking['id'];
+                          res['channelId'] ?? res['channelName'] ?? bookingId;
                       final agoraToken = res['token'] ?? res['agoraToken'];
 
                       if (!mounted) return;
 
                       if (mode == 'AUDIO') {
+                        debugPrint('🔀 [DashboardScreen] Pushing to /audio-call with channelId: $channelId');
                         context.push('/audio-call', extra: {
                           'channelId': channelId,
                           'clientName': 'Client ($categoryName)',
                           'agoraToken': agoraToken,
                         });
                       } else if (mode == 'VIDEO') {
+                        debugPrint('🔀 [DashboardScreen] Pushing to /video-call with channelId: $channelId');
                         context.push('/video-call', extra: {
                           'channelId': channelId,
                           'clientName': 'Client ($categoryName)',
                           'agoraToken': agoraToken,
                         });
                       } else {
+                        debugPrint('🔀 [DashboardScreen] Navigating to /chat');
                         context.go('/chat');
                       }
-                    } catch (e) {
+                    } catch (e, stackTrace) {
+                      debugPrint('❌ [DashboardScreen] Error joining session for booking $bookingId: $e');
+                      debugPrint('📌 [DashboardScreen] StackTrace:\n$stackTrace');
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to join session: $e')),
+                        SnackBar(
+                          content: Text('Failed to join session: $e'),
+                          backgroundColor: Colors.red.shade700,
+                        ),
                       );
                     }
                   },

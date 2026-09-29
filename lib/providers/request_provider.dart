@@ -73,6 +73,7 @@ class RequestProvider extends ChangeNotifier {
     _isApiLoading = true;
     _apiError = null;
     notifyListeners();
+    debugPrint('📡 [RequestProvider] Fetching REST API bookings...');
     try {
       final bookings = await _apiService.getCounsellorBookings(
         token: token,
@@ -86,12 +87,16 @@ class RequestProvider extends ChangeNotifier {
         counts[st] = (counts[st] ?? 0) + 1;
       }
       _apiStatusCounts = counts;
+      debugPrint('✅ [RequestProvider] Fetched ${bookings.length} bookings. Status breakdown: $counts');
 
       // Also fetch chat threads from GET /api/v1/chat/threads
+      debugPrint('📡 [RequestProvider] Fetching chat threads...');
       final threads = await _apiService.getChatThreads(token: token);
       _chatThreads = threads;
-    } catch (e) {
-      debugPrint('🐛 [RequestProvider] fetchApiBookings error: $e');
+      debugPrint('✅ [RequestProvider] Fetched ${threads.length} chat threads.');
+    } catch (e, stackTrace) {
+      debugPrint('❌ [RequestProvider] fetchApiBookings error: $e');
+      debugPrint('📌 [RequestProvider] StackTrace:\n$stackTrace');
       _apiError = e.toString();
     } finally {
       _isApiLoading = false;
@@ -107,6 +112,7 @@ class RequestProvider extends ChangeNotifier {
     _requestSubscription?.cancel();
     _isLoading = true;
     notifyListeners();
+    debugPrint('📡 [RequestProvider] Setting up Firestore listener for counsellorId: $counsellorId');
 
     _requestSubscription = _firestore
         .collection('consultation_requests')
@@ -118,14 +124,17 @@ class RequestProvider extends ChangeNotifier {
           .toList();
       _requests.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       _isLoading = false;
+      debugPrint('✅ [RequestProvider] Received Firestore update: ${_requests.length} requests');
       notifyListeners();
     }, onError: (e) {
+      debugPrint('❌ [RequestProvider] Firestore listener error: $e');
       _isLoading = false;
       notifyListeners();
     });
   }
 
   Future<void> acceptRequest(String requestId) async {
+    debugPrint('⚡ [RequestProvider] Accepting request: $requestId');
     try {
       await _firestore
           .collection('consultation_requests')
@@ -133,12 +142,14 @@ class RequestProvider extends ChangeNotifier {
           .update({
         'status': RequestStatus.accepted.name,
       });
+      debugPrint('✅ [RequestProvider] Successfully accepted request: $requestId');
     } catch (e) {
-      debugPrint('Error accepting request: $e');
+      debugPrint('❌ [RequestProvider] Error accepting request: $e');
     }
   }
 
   Future<void> declineRequest(String requestId) async {
+    debugPrint('⚡ [RequestProvider] Declining request: $requestId');
     try {
       await _firestore
           .collection('consultation_requests')
@@ -146,12 +157,14 @@ class RequestProvider extends ChangeNotifier {
           .update({
         'status': RequestStatus.declined.name,
       });
+      debugPrint('✅ [RequestProvider] Successfully declined request: $requestId');
     } catch (e) {
-      debugPrint('Error declining request: $e');
+      debugPrint('❌ [RequestProvider] Error declining request: $e');
     }
   }
 
   Future<void> completeRequest(String requestId) async {
+    debugPrint('⚡ [RequestProvider] Completing request: $requestId');
     try {
       await _firestore
           .collection('consultation_requests')
@@ -159,8 +172,9 @@ class RequestProvider extends ChangeNotifier {
           .update({
         'status': RequestStatus.completed.name,
       });
+      debugPrint('✅ [RequestProvider] Successfully completed request: $requestId');
     } catch (e) {
-      debugPrint('Error completing request: $e');
+      debugPrint('❌ [RequestProvider] Error completing request: $e');
     }
   }
 
